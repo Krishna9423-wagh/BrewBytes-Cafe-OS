@@ -1,0 +1,2784 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Brew &amp; Bytes Cafe POS</title>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=DM+Sans:wght@400;500;700&display=swap">
+  <style>
+    :root {
+      --bg: #EEF1EC;
+      --ink: #1D2A24;
+      --mute: #5E6B64;
+      --line: #CBD3CC;
+      --accent: #0F5C5A;
+      --ok: #1E7B4B;
+      --warn: #B3261E;
+      --amber: #9A6200;
+      --panel: #E3E8E2;
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    @media (prefers-color-scheme:dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #121A17;
+        --ink: #E4EBE6;
+        --mute: #93A39A;
+        --line: #2B3832;
+        --accent: #4FC3BD;
+        --ok: #58C98A;
+        --warn: #FF8A80;
+        --amber: #E5B04A;
+        --panel: #1A2420;
+        color-scheme: dark
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #121A17;
+      --ink: #E4EBE6;
+      --mute: #93A39A;
+      --line: #2B3832;
+      --accent: #4FC3BD;
+      --ok: #58C98A;
+      --warn: #FF8A80;
+      --amber: #E5B04A;
+      --panel: #1A2420;
+      color-scheme: dark
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 400 16px/1.45 'DM Sans', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased
+    }
+
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 16px 16px 40px
+    }
+
+    h1,
+    h2,
+    h3,
+    .big {
+      font-family: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 10px
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .badge-live {
+      font-size: 11px;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      color: var(--ok);
+      background: rgba(30, 123, 75, 0.12);
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(30, 123, 75, 0.3)
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    nav {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap
+    }
+
+    nav a {
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 15px;
+      transition: all .15s
+    }
+
+    nav a.on {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg)
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--mute);
+      margin: 10px 0 4px;
+      flex-wrap: wrap
+    }
+
+    .live-dot {
+      color: var(--ok);
+      font-size: 14px;
+      line-height: 1
+    }
+
+    .role-badge {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-weight: 600;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer
+    }
+
+    h2 {
+      font-size: 17px;
+      margin: 20px 0 8px
+    }
+
+    h3 {
+      font-size: 15px;
+      margin: 14px 0 6px
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      min-height: 44px;
+      transition: all .15s;
+      touch-action: manipulation
+    }
+
+    button.pri {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+      font-weight: 600
+    }
+
+    button.sec {
+      background: var(--panel);
+      color: var(--ink);
+      border-color: var(--line)
+    }
+
+    button.danger {
+      color: var(--warn);
+      border-color: var(--warn)
+    }
+
+    button.sm {
+      min-height: 34px;
+      padding: 4px 10px;
+      font-size: 13px
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: default
+    }
+
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px
+    }
+
+    .icon-btn {
+      min-height: 38px;
+      padding: 6px 10px;
+      font-size: 15px;
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .tables {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+      gap: 8px
+    }
+
+    .tables button {
+      position: relative;
+      height: 52px;
+      font-size: 18px;
+      font-weight: 700;
+      border-radius: 6px
+    }
+
+    .tables button.on {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent)
+    }
+
+    .tables button.has-order {
+      border-color: var(--amber)
+    }
+
+    .tables button.has-order::after {
+      content: '';
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber)
+    }
+
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .item small {
+      color: var(--mute);
+      display: block;
+      font-size: 13px
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .step button {
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      font-size: 22px;
+      font-weight: 700;
+      border-radius: 6px
+    }
+
+    .step b {
+      min-width: 24px;
+      text-align: center;
+      font-size: 18px
+    }
+
+    input[type=text],
+    input[type=tel],
+    input[type=number],
+    input[type=password] {
+      font: inherit;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      box-sizing: border-box
+    }
+
+    .full-input {
+      width: 100%;
+      margin: 8px 0
+    }
+
+    .send {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      bottom: 0;
+      background: var(--bg);
+      padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+      border-top: 2px solid var(--ink);
+      margin-top: 10px;
+      z-index: 100
+    }
+
+    .big {
+      font-size: 22px;
+      font-weight: 700
+    }
+
+    .ready {
+      background: var(--panel);
+      border-left: 4px solid var(--ok);
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border-radius: 6px
+    }
+
+    .kcols {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px
+    }
+
+    @media (max-width:760px) {
+      .kcols {
+        grid-template-columns: 1fr
+      }
+
+      main {
+        padding: 12px 12px 80px
+      }
+
+      .send button.pri {
+        padding: 10px 20px;
+        font-size: 17px
+      }
+    }
+
+    .tk {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--amber);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      background: var(--bg)
+    }
+
+    .tk.c0 {
+      border-left-color: var(--amber)
+    }
+
+    .tk.c1 {
+      border-left-color: var(--accent)
+    }
+
+    .tk.c2 {
+      border-left-color: var(--ok)
+    }
+
+    .tk.late {
+      border-left-color: var(--warn);
+      background: rgba(179, 38, 30, 0.04)
+    }
+
+    .tk .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline
+    }
+
+    .tk ul {
+      margin: 6px 0 10px;
+      padding-left: 0;
+      list-style: none;
+      font-size: 16px
+    }
+
+    .tk .m {
+      color: var(--mute);
+      font-size: 13px;
+      margin: 4px 0
+    }
+
+    .empty {
+      color: var(--mute);
+      padding: 8px 0
+    }
+
+    .fig {
+      font-family: 'Bricolage Grotesque', 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: clamp(22px, 6.4vw, 56px);
+      line-height: 1.05;
+      white-space: nowrap
+    }
+
+    .ledger {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .ledger>div {
+      min-width: 0
+    }
+
+    .lab {
+      color: var(--mute);
+      font-size: 13px
+    }
+
+    .op {
+      font-size: clamp(18px, 5vw, 40px);
+      color: var(--mute)
+    }
+
+    .profit .fig {
+      color: var(--ok)
+    }
+
+    .split {
+      display: flex;
+      height: 10px;
+      border-radius: 2px;
+      overflow: hidden;
+      background: var(--panel);
+      margin: 6px 0 8px
+    }
+
+    .split i {
+      display: block
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 14px
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .bar {
+      height: 6px;
+      background: var(--panel);
+      margin-top: 5px;
+      border-radius: 3px;
+      overflow: hidden
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px
+    }
+
+    .low .bar i {
+      background: var(--warn)
+    }
+
+    .low b {
+      color: var(--warn)
+    }
+
+    .alert {
+      background: var(--panel);
+      border-left: 4px solid var(--warn);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      border-radius: 6px
+    }
+
+    select {
+      font: inherit;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px
+    }
+
+    #ef,
+    #vf,
+    #sf,
+    #mf {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px
+    }
+
+    #ef input,
+    #vf input,
+    #sf input {
+      width: 130px
+    }
+
+    #toast {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 18px;
+      border-radius: 6px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 500;
+      font-size: 14px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+      z-index: 99999;
+      display: none;
+      pointer-events: none
+    }
+
+    .bill-calc {
+      background: var(--panel);
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin: 8px 0;
+      font-size: 14px
+    }
+
+    .bill-calc .c-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 4px 0
+    }
+
+    .bill-calc select,
+    .bill-calc input[type=number] {
+      padding: 4px 6px;
+      font-size: 13px;
+      width: 100px
+    }
+
+    /* EXECUTIVE SUMMARY KPI CARDS */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 12px 0 18px
+    }
+
+    .kpi-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 14px
+    }
+
+    .kpi-card .k-title {
+      font-size: 13px;
+      color: var(--mute);
+      margin-bottom: 4px
+    }
+
+    .kpi-card .k-val {
+      font-size: 24px;
+      font-weight: 700;
+      font-family: 'Bricolage Grotesque', sans-serif
+    }
+
+    /* QR SCANNER & WIFI CONNECT BOX */
+    .qr-box {
+      background: var(--panel);
+      border: 1px dashed var(--accent);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0
+    }
+
+    .qr-frame {
+      background: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center
+    }
+
+    .date-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 12px 0;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    /* MODAL & RECEIPT PRINT STYLES */
+    #receipt-overlay,
+    #role-modal,
+    #qr-modal,
+    #pin-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 16px
+    }
+
+    #receipt-box,
+    #role-box,
+    #qr-modal-box,
+    #pin-box {
+      background: #fff;
+      color: #111;
+      width: 100%;
+      max-width: 420px;
+      border-radius: 8px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    #receipt-content {
+      padding: 20px;
+      overflow-y: auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      line-height: 1.4
+    }
+
+    .rc-header {
+      text-align: center;
+      border-bottom: 1px dashed #666;
+      padding-bottom: 10px;
+      margin-bottom: 10px
+    }
+
+    .rc-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-family: 'Bricolage Grotesque', sans-serif
+    }
+
+    .rc-header p {
+      margin: 2px 0;
+      font-size: 12px;
+      color: #555
+    }
+
+    .rc-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0
+    }
+
+    .rc-table th {
+      border-bottom: 1px dashed #666;
+      padding: 4px 0;
+      text-align: left;
+      font-size: 12px
+    }
+
+    .rc-table td {
+      padding: 4px 0
+    }
+
+    .rc-summary {
+      border-top: 1px dashed #666;
+      padding-top: 8px;
+      margin-top: 8px
+    }
+
+    .rc-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0
+    }
+
+    .rc-total {
+      font-size: 16px;
+      font-weight: 700;
+      border-top: 1px solid #111;
+      border-bottom: 1px solid #111;
+      padding: 6px 0;
+      margin: 6px 0
+    }
+
+    .rc-footer {
+      text-align: center;
+      margin-top: 14px;
+      border-top: 1px dashed #666;
+      padding-top: 10px;
+      font-size: 12px
+    }
+
+    .rc-actions {
+      padding: 12px;
+      display: flex;
+      gap: 8px;
+      border-top: 1px solid #eee;
+      background: #fafafa
+    }
+
+    @media print {
+      body * {
+        visibility: hidden
+      }
+
+      #receipt-overlay,
+      #receipt-overlay * {
+        visibility: visible
+      }
+
+      #receipt-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        background: none;
+        display: block !important;
+        padding: 0;
+        margin: 0
+      }
+
+      #receipt-box {
+        box-shadow: none;
+        border: none;
+        max-width: 100%;
+        width: 80mm;
+        margin: 0 auto
+      }
+
+      .rc-actions {
+        display: none !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="toast"></div>
+
+  <!-- OWNER PIN VERIFICATION MODAL -->
+  <div id="pin-modal">
+    <div id="pin-box" style="padding:24px;text-align:center">
+      <div style="font-size:36px;margin-bottom:4px">🔒</div>
+      <h2 style="margin:4px 0">Owner Security PIN</h2>
+      <p style="color:#666;font-size:13px;margin:4px 0 16px">Owner Dashboard kholne ke liye 4-digit PIN dalein:</p>
+      <form id="pinForm" onsubmit="verifyOwnerPin(event)">
+        <input type="password" id="inputPin" pattern="[0-9]*" inputmode="numeric" maxlength="6"
+          placeholder="PIN (Default: 1234)"
+          style="width:180px;font-size:24px;text-align:center;letter-spacing:6px;margin:0 auto 16px;display:block"
+          required autofocus>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <button type="submit" class="pri" style="flex:1">Unlock Karein</button>
+          <button type="button" class="sec" onclick="closePinModal()">Cancel</button>
+        </div>
+      </form>
+      <p style="font-size:11px;color:#888;margin-top:12px">Default PIN: <b>1234</b> (Owner settings me badal sakte hain)
+      </p>
+    </div>
+  </div>
+
+  <!-- QR POPUP MODAL (Available in 1-Click from Header) -->
+  <div id="qr-modal">
+    <div id="qr-modal-box" style="padding:22px;text-align:center">
+      <h2 style="margin-top:0">📱 Waiter Phone Scanner</h2>
+      <p style="color:#666;font-size:13px;margin:4px 0 10px">Android ya iPhone ke camera se scan karein. Phone par
+        <b>sirf Waiter screen</b> open hogi:</p>
+      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:12px;flex-wrap:wrap">
+        <button type="button" class="sm pri" id="modalBtnOnline" onclick="switchToUrlMode('online')">🌐 Online (Bina
+          Wi-Fi - 4G/5G)</button>
+        <button type="button" class="sm sec" id="modalBtnWifi" onclick="switchToUrlMode('wifi')">📶 Cafe Wi-Fi
+          (Local)</button>
+      </div>
+      <div class="qr-frame" style="margin:0 auto">
+        <canvas id="modalQrCanvas" width="200" height="200" style="display:none"></canvas>
+        <img id="modalQrImg" src="" width="200" height="200" alt="Waiter QR Code" style="display:block">
+        <span style="font-size:11px;color:#444;font-weight:700;margin-top:6px">SCAN FOR WAITER APP ONLY</span>
+      </div>
+      <p id="modalQrUrlText"
+        style="font-family:monospace;font-size:12px;color:var(--accent);margin:12px 0 6px;word-break:break-all"></p>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+        <button class="sm pri" onclick="copyCurrentQrUrl()">📋 Link Copy Karein</button>
+        <button class="sm sec" onclick="closeQrModal()">✕ Band karein</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROLE SELECTION MODAL -->
+  <div id="role-modal">
+    <div id="role-box" style="padding:24px">
+      <h2 style="margin-top:0">Role Switcher</h2>
+      <p style="color:#666;font-size:14px;margin-bottom:16px">Role chunein (Owner access ke liye PIN zaroori hai):</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="pri" onclick="requestRoleAccess('owner')">👑 Owner (PIN Required - Full Access)</button>
+        <button class="sec" onclick="requestRoleAccess('manager')">💼 Manager (PIN Required)</button>
+        <button class="sec" onclick="requestRoleAccess('cashier')">💳 Cashier (Billing &amp; Collection)</button>
+        <button class="sec" onclick="requestRoleAccess('kitchen')">👨‍🍳 Kitchen (KDS Display Screen)</button>
+        <button class="sec" onclick="requestRoleAccess('waiter')">📱 Waiter (Mobile Phone Order - Open)</button>
+      </div>
+      <button class="sm" style="margin-top:16px;border:none;background:none;color:#888" onclick="closeRoleModal()">✕
+        Band karein</button>
+    </div>
+  </div>
+
+  <!-- RECEIPT MODAL -->
+  <div id="receipt-overlay">
+    <div id="receipt-box">
+      <div id="receipt-content"></div>
+      <div class="rc-actions no-print">
+        <button class="pri" style="flex:1" onclick="window.print()">🖨️ Print Receipt / Save PDF</button>
+        <button class="sec" onclick="closeReceipt()">Band karein (✕)</button>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <header>
+      <div class="brand">
+        <h1>Brew &amp; Bytes <span class="badge-live">LIVE POS</span></h1>
+      </div>
+      <div class="actions">
+        <button class="icon-btn" id="headerQrBtn" onclick="openQrModal()" title="Waiter Phone Connect QR">📱 Waiter
+          QR</button>
+        <div class="role-badge" id="roleBtn" onclick="openRoleModal()" title="Role badlein">
+          <span id="roleIcon">👑</span> <span id="roleText">Owner</span> ▾
+        </div>
+        <button class="icon-btn" id="sndBtn" title="Aawaz toggle karein">🔊</button>
+        <button class="icon-btn" id="thmBtn" title="Theme badlein">🌙</button>
+      </div>
+      <nav id="mainNav">
+        <a href="#owner" id="no">Owner Dashboard</a>
+        <a href="#waiter" id="nw">Waiter</a>
+        <a href="#kitchen" id="nk">Kitchen</a>
+        <a href="#cashier" id="nc">Cashier</a>
+        <a href="#report" id="nr">Report</a>
+      </nav>
+    </header>
+
+    <div class="status-bar" id="statusBar">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="live-dot">●</span>
+        <span id="mode">POS Live Sync Active</span>
+      </div>
+      <div id="activeTablesPill" style="font-weight:600">Active Tables: 0/12</div>
+    </div>
+
+    <!-- SECTION 1: OWNER DASHBOARD (LOCKED FOR OWNER ONLY) -->
+    <section id="o">
+      <!-- Date Navigator (Pichle dino ka hisaab dekhne ke liye) -->
+      <div class="date-bar">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="sm sec" id="btnPrevDay">◀ Pichla din</button>
+          <button class="sm sec" id="btnNextDay">Agla din ▶</button>
+          <span id="viewingDateLabel" style="font-weight:700;font-size:14px">📅 Aaj (Today)</span>
+        </div>
+        <button class="sm pri" id="btnToday">Aaj par aao</button>
+      </div>
+
+      <!-- Top 1-Nazar Executive Summary -->
+      <div class="ledger">
+        <div>
+          <div class="fig" id="osale">₹0</div>
+          <div class="lab" id="labSale">Is Din Ki Total Sale</div>
+        </div>
+        <div class="op">−</div>
+        <div>
+          <div class="fig" id="oexp">₹0</div>
+          <div class="lab" id="labExp">Is Din Ka Kharcha</div>
+        </div>
+        <div class="op">=</div>
+        <div class="profit">
+          <div class="fig" id="oprof">₹0</div>
+          <div class="lab" id="labProf">Is Din Ka Asli Profit</div>
+        </div>
+      </div>
+
+      <!-- Live Payment Collection Split (Cash vs UPI vs Card) -->
+      <h2>Payment Collection (Breakdown)</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card" style="border-left:4px solid #B5822A">
+          <div class="k-title">💵 Cash Collection</div>
+          <div class="k-val" id="kpiCash">₹0</div>
+        </div>
+        <div class="kpi-card" style="border-left:4px solid #0F8F8A">
+          <div class="k-title">📱 UPI / QR Collection</div>
+          <div class="k-val" id="kpiUPI">₹0</div>
+        </div>
+        <div class="kpi-card" style="border-left:4px solid #6B5BC0">
+          <div class="k-title">💳 Card Collection</div>
+          <div class="k-val" id="kpiCard">₹0</div>
+        </div>
+        <div class="kpi-card" style="border-left:4px solid var(--accent)">
+          <div class="k-title">🧾 Total Bills Chukte Hue</div>
+          <div class="k-val" id="kpiBills">0 bills</div>
+        </div>
+      </div>
+      <div class="split" id="osp"></div>
+      <div class="legend" id="olg"></div>
+      <p class="mode" id="otop"></p>
+
+      <!-- Live Kitchen Orders Pulse -->
+      <h2>Live Kitchen Pulse</h2>
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="kpi-card" style="border-left:4px solid var(--amber)">
+          <div class="k-title">Naye Orders (Pending)</div>
+          <div class="k-val" id="kpiNew">0</div>
+        </div>
+        <div class="kpi-card" style="border-left:4px solid var(--accent)">
+          <div class="k-title">Ban rahe hain (Cooking)</div>
+          <div class="k-val" id="kpiCooking">0</div>
+        </div>
+        <div class="kpi-card" style="border-left:4px solid var(--ok)">
+          <div class="k-title">Ready (Serve ke liye)</div>
+          <div class="k-val" id="kpiReady">0</div>
+        </div>
+      </div>
+
+      <!-- QR SCANNER BOX (PHONE PAR SIRF WAITER ACCESS MILEGA) -->
+      <div class="qr-box">
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          <div class="qr-frame">
+            <canvas id="dashQrCanvas" width="180" height="180" style="display:none"></canvas>
+            <img id="dashQrImg" src="" width="180" height="180" alt="Waiter QR Code" style="display:block">
+            <span style="font-size:11px;color:#333;font-weight:700;margin-top:6px">📷 ANDROID / IPHONE CAMERA
+              SCAN</span>
+          </div>
+          <div style="flex:1;min-width:240px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+              <h3 style="margin:0">📱 Waiter Phone Connect (Sirf Waiter Access)</h3>
+              <span id="onlinePill"
+                style="font-size:12px;background:rgba(30,123,75,0.15);color:var(--ok);font-weight:700;padding:2px 8px;border-radius:12px;border:1px solid rgba(30,123,75,0.3)">🌐
+                Online Cloud Active</span>
+            </div>
+            <p style="margin:6px 0 10px;font-size:14px">Is QR code ko kisi bhi Android ya iPhone se scan karein. Phone
+              par <b>sirf Waiter Screen</b> open hogi—Owner Dashboard, Sale, Profit sab lock rahega!</p>
+
+            <!-- 1-Click URL Mode Switcher -->
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+              <button type="button" class="sm pri" id="btnModeOnline" onclick="switchToUrlMode('online')">🌐 Online
+                (Bina Wi-Fi - 4G/5G)</button>
+              <button type="button" class="sm sec" id="btnModeWifi" onclick="switchToUrlMode('wifi')">📶 Cafe Wi-Fi
+                (Local)</button>
+            </div>
+
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+              <input type="text" id="customQrUrl" value="https://407a99b77f9745.app.lhr.life"
+                style="flex:1;min-width:200px;font-family:monospace;font-size:13px;padding:6px 10px">
+              <button class="sm pri" id="btnUpdateQr">Update QR</button>
+              <button class="sm sec" id="btnCopyUrl">📋 Copy Link</button>
+            </div>
+
+            <div
+              style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:13px">
+              <b>⚡ Bina Cafe Wi-Fi ke Kaise Chalega?</b>
+              <div style="margin-top:6px;line-height:1.5">
+                <div><b>🌐 Online Cloud Link:</b> Upar "Online" select karein. Waiter kisi bhi mobile data (Jio, Airtel
+                  4G/5G) se cafe ke andar ya bahar table se order le sakta hai!</div>
+                <div style="margin-top:4px"><b>📶 Cafe Wi-Fi:</b> Agar cafe ka router use karna ho toh "Cafe Wi-Fi"
+                  chunein (IP: <code>http://172.20.10.6:8000</code>).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stock Auto Deduction & Low Stock Alert -->
+      <h2>Stock &amp; Inventory (Auto-Deduct per Order)</h2>
+      <div id="oal"></div>
+      <div id="ost"></div>
+      <button id="rs" style="margin-top:10px">Stock bhar diya (Restock All)</button>
+
+      <h3>Stock Movement Ledger (Audit Trail)</h3>
+      <div id="sml"
+        style="max-height:160px;overflow-y:auto;background:var(--panel);padding:8px 12px;border-radius:4px;font-size:13px">
+      </div>
+
+      <!-- Menu Management -->
+      <h2>Menu Management (Items &amp; Prices)</h2>
+      <div id="menuList"></div>
+      <form id="mf">
+        <input id="mi_name" type="text" placeholder="Item ka naam" required style="width:160px">
+        <input id="mi_price" type="number" min="1" placeholder="Price ₹" required style="width:100px">
+        <select id="mi_cat">
+          <option value="Coffee">Coffee</option>
+          <option value="Chai">Chai</option>
+          <option value="Sandwich">Sandwich</option>
+          <option value="Snacks">Snacks</option>
+          <option value="Dessert">Dessert</option>
+        </select>
+        <button class="pri">Naya Item Add Karo</button>
+      </form>
+
+      <!-- Kharcha (Expense Book) -->
+      <h2>Kharcha (Category ke saath)</h2>
+      <div id="oc"></div>
+      <form id="ef">
+        <select id="ec">
+          <option>Vendor bill</option>
+          <option>Rent</option>
+          <option>Gas</option>
+          <option>Sabzi</option>
+          <option>Milk / Dairy</option>
+          <option>Maintenance</option>
+          <option>Staff food</option>
+          <option>Other</option>
+        </select>
+        <input id="ea" type="number" min="1" placeholder="Amount ₹" required>
+        <button class="pri">Kharcha add karo</button>
+      </form>
+
+      <!-- Vendor Khata Book -->
+      <h2>Vendor ko dena baaki (Khata Book)</h2>
+      <div id="vl"></div>
+      <form id="vf">
+        <input id="vn" type="text" placeholder="Vendor ka naam" required style="width:160px">
+        <input id="va" type="number" min="1" placeholder="Amount ₹" required>
+        <select id="vt">
+          <option value="bill">Bill aaya</option>
+          <option value="paid">Paisa diya</option>
+        </select>
+        <button class="pri">Add karo</button>
+      </form>
+
+      <!-- Staff Directory & Attendance -->
+      <h2>Staff Directory &amp; Attendance Track (Permanent Staff)</h2>
+      <p class="mode" style="margin-top:0">Staff ka data hamesha surakshit rehta hai. Har naye din par sirf attendance
+        mark karni hoti hai.</p>
+      <div id="sl"></div>
+      <form id="sf">
+        <input id="sn" type="text" placeholder="Naam" required style="width:130px">
+        <select id="sr">
+          <option>Waiter</option>
+          <option>Cashier</option>
+          <option>Kitchen</option>
+          <option>Manager</option>
+        </select>
+        <select id="sh">
+          <option>Subah</option>
+          <option>Shaam</option>
+          <option>Full day</option>
+        </select>
+        <input id="ss" type="number" min="1" placeholder="Mahine ki salary ₹" required style="width:150px">
+        <button class="pri">Staff add karo</button>
+      </form>
+
+      <!-- Settings & PIN Change -->
+      <h2>Cafe Setup &amp; Owner Security PIN</h2>
+      <div
+        style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);padding:12px 14px;border-radius:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>Total Tables:</span>
+          <input type="number" id="cfgTables" min="4" max="48" value="12" style="width:80px">
+          <button class="sec sm" id="btnSaveTables">Save</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>Owner PIN:</span>
+          <input type="password" id="cfgOwnerPin" maxlength="6" value="1234" style="width:90px;letter-spacing:2px">
+          <button class="sec sm" id="btnSavePin">Update PIN</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: WAITER SCREEN (MOBILE FRIENDLY - ANDROID & IPHONE) -->
+    <section id="w" hidden>
+      <div id="rd"></div>
+      <h2>Table chuno</h2>
+      <div class="tables" id="tb"></div>
+
+      <h2>Customer details (Optional)</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" id="cname" placeholder="Customer ka naam" style="flex:1;min-width:140px">
+        <input type="tel" id="cphone" placeholder="Mobile number" inputmode="numeric" style="flex:1;min-width:140px">
+      </div>
+
+      <h2>Order lo</h2>
+      <div id="mn"></div>
+      <input type="text" id="note" class="full-input" placeholder="Note (jaise: kam cheeni, extra cheese)">
+
+      <div class="send">
+        <div>
+          <div class="big" id="tot">₹0</div>
+          <span class="mode" id="sel">Table nahi chuna</span>
+        </div>
+        <button class="pri" id="go" disabled>Kitchen ko bhejo</button>
+      </div>
+    </section>
+
+    <!-- SECTION 3: KITCHEN DISPLAY SYSTEM (KDS) -->
+    <section id="k" hidden>
+      <div class="kcols">
+        <div>
+          <h2 id="h0">Naya</h2>
+          <div id="c0"></div>
+        </div>
+        <div>
+          <h2 id="h1">Ban raha hai</h2>
+          <div id="c1"></div>
+        </div>
+        <div>
+          <h2 id="h2">Ready</h2>
+          <div id="c2"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: CASHIER (1-Click Billing & History) -->
+    <section id="b" hidden>
+      <div id="sum"></div>
+      <h2>Bill baaki hai (Active Orders)</h2>
+      <div id="bl"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:28px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">Chukte Bill &amp; Receipts History</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--mute)">Date Filter:</span>
+          <select id="billDateFilter" style="padding:4px 8px;font-size:13px">
+            <option value="today">Sirf Aaj ke Bills</option>
+            <option value="yesterday">Kal ke Bills</option>
+            <option value="all">Puri History (All Bills)</option>
+          </select>
+        </div>
+      </div>
+      <div id="pbl"></div>
+    </section>
+
+    <!-- SECTION 5: REPORT (Monthly Profit, Best Sellers, Expense Analysis) -->
+    <section id="r" hidden>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:14px">
+        <button id="rpv">← Pichla</button>
+        <h2 id="rm" style="margin:0">Mahina</h2>
+        <button id="rn">Agla →</button>
+      </div>
+      <div class="ledger" style="display:block">
+        <div class="profit">
+          <div class="fig" id="rp">₹0</div>
+          <div class="lab">Asli bacha hua profit (Sale − Kharcha − Staff Salary)</div>
+        </div>
+      </div>
+      <div id="rsm"></div>
+      <p class="mode" id="rpay"></p>
+
+      <h2>Sabse zyada bike items (Best Sellers)</h2>
+      <div id="rt"></div>
+
+      <h2>Kharcha kahan zyada hua (Expense Analysis)</h2>
+      <p class="mode" id="rhl"></p>
+      <div id="rc"></div>
+
+      <h2>Staff salary payout summary</h2>
+      <div id="rst"></div>
+
+      <div
+        style="margin-top:36px;padding-top:16px;border-top:1px dashed var(--line);display:flex;gap:10px;flex-wrap:wrap">
+        <button id="btnExport" class="sm sec">📥 Export / Backup Data (JSON)</button>
+        <button id="btnCloseDay" class="sm sec">🌙 Aaj ka din close karein (New Day)</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Clean Starter Cafe Menu
+    var DEFAULT_MENU = [
+      ['Cappuccino', 140, 'Coffee'],
+      ['Cold coffee', 160, 'Coffee'],
+      ['Masala chai', 50, 'Chai'],
+      ['Paneer sandwich', 120, 'Sandwich'],
+      ['Cheese sandwich', 110, 'Sandwich'],
+      ['Cheese toast', 100, 'Snacks'],
+      ['Fries', 110, 'Snacks'],
+      ['Brownie', 90, 'Dessert']
+    ];
+
+    var menu = JSON.parse(JSON.stringify(DEFAULT_MENU));
+
+    // Recipes mapping for live stock auto-deduction
+    var RC = {
+      'Cappuccino': { d: .2, b: .018 },
+      'Cold coffee': { d: .25, b: .02 },
+      'Masala chai': { d: .1 },
+      'Paneer sandwich': { br: .15, p: .08, c: 1 },
+      'Cheese toast': { br: .12, c: 2 },
+      'Cheese sandwich': { br: .15, c: 2 },
+      'Fries': { fr: 1 },
+      'Brownie': { bw: 1 }
+    };
+
+    // Stock items: [Name, Unit, Base Capacity]
+    var SK = {
+      d: ['Doodh', 'L', 20],
+      b: ['Coffee beans', 'kg', 2.5],
+      br: ['Bread', 'loaf', 16],
+      p: ['Paneer', 'kg', 2.5],
+      c: ['Cheese slices', 'pcs', 60],
+      fr: ['Fries packet', 'pkt', 25],
+      bw: ['Brownie pcs', 'pcs', 20]
+    };
+
+    var PC = { Cash: '#B5822A', UPI: '#0F8F8A', Card: '#6B5BC0' };
+    var SL = { new: 'Naya', cooking: 'Ban raha hai', ready: 'Ready', served: 'Serve ho gaya', cancelled: 'Cancelled' };
+
+    // Clean Production State
+    var db = null, coll = null, ecoll = null;
+    var O = [];
+    var E = [];
+    var V = [];
+    var ST = [];
+    var AT = [];
+    var base = { at: 0, q: null };
+    var stockMovements = [];
+    var cart = {};
+    var table = null;
+    var tableCount = 12;
+    var RM = 0;
+    var soundOn = true;
+    var activeRole = 'owner';
+    var ownerPin = '1234';
+    var viewingDayOffset = 0;
+    var LOCAL_WIFI_URL = 'http://172.20.10.6:8000';
+    var activeOnlineUrl = 'https://407a99b77f9745.app.lhr.life';
+    var currentUrlMode = localStorage.getItem('bnb_url_mode') || 'online';
+    var currentQrUrl = (currentUrlMode === 'wifi') ? LOCAL_WIFI_URL : activeOnlineUrl;
+    var pendingRoleRequest = null;
+    var isPhoneMode = false;
+
+    // Check if running on Phone or scanned via Waiter QR
+    function checkPhoneOrWaiterMode() {
+      var urlParams = new URLSearchParams(window.location.search);
+      var hash = window.location.hash;
+      var isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      if (urlParams.get('role') === 'waiter' || hash === '#waiter' || (isMobileDevice && localStorage.getItem('bnb_active_role') !== 'owner')) {
+        isPhoneMode = true;
+        activeRole = 'waiter';
+        localStorage.setItem('bnb_active_role', 'waiter');
+      }
+    }
+    checkPhoneOrWaiterMode();
+
+    // Helper DOM & formatting functions
+    function $(i) { return document.getElementById(i) }
+    function fmt(n) { return (n < 0 ? '−' : '') + '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN') }
+    function fmtP(p) { return fmt(Math.round(p) / 100) }
+    function toPaise(rupees) { return Math.round(rupees * 100) }
+    function ago(t) { var m = Math.floor((Date.now() - t) / 60000); return m < 1 ? 'abhi' : m + ' min pehle' }
+    function ymd(t) { var d = new Date(t || Date.now()); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) }
+    function getTableNum(o) { if (!o) return 1; return o.table || o.table_number || 1; }
+    function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+    function pr(n) { for (var i = 0; i < menu.length; i++)if (menu[i][0] == n) return menu[i][1]; return 0 }
+
+    // Integer paise total
+    function ttPaise(o) {
+      if (o.total_paise !== undefined) return o.total_paise;
+      if (o.total !== undefined) return toPaise(o.total);
+      var sum = o.items.reduce(function (s, i) { return s + i.qty * pr(i.name) }, 0);
+      return toPaise(sum);
+    }
+    function tt(o) { return ttPaise(o) / 100 }
+
+    function er(e) { $('mode').textContent = 'Save nahi hua (' + (e && e.code || 'error') + ').'; toast('Error: Save nahi hua', true) }
+
+    // Toast banner
+    function toast(msg, isWarn) {
+      var t = $('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.style.background = isWarn ? 'var(--warn)' : 'var(--accent)';
+      t.style.display = 'block';
+      clearTimeout(toast.tid);
+      toast.tid = setTimeout(function () { t.style.display = 'none' }, 2800);
+    }
+
+    // Sound effects
+    function playSound(type) {
+      if (!soundOn) return;
+      try {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        var ctx = new AudioCtx();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        var now = ctx.currentTime;
+        if (type === 'order') {
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+          osc.start(now);
+          osc.stop(now + 0.18);
+        } else if (type === 'ready') {
+          osc.frequency.setValueAtTime(587.33, now);
+          osc.frequency.setValueAtTime(880, now + 0.15);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        }
+      } catch (e) { }
+    }
+
+    // Storage Management
+    var STORAGE_KEY = 'bnb_cafe_production_v2';
+
+    function persist() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          O: O, E: E, V: V, ST: ST, AT: AT,
+          base: base, menu: menu,
+          tableCount: tableCount,
+          stockMovements: stockMovements,
+          currentQrUrl: currentQrUrl,
+          ownerPin: ownerPin
+        }));
+        if (window.BroadcastChannel && window._bc) {
+          window._bc.postMessage('sync');
+        }
+      } catch (e) { }
+    }
+
+    function loadPersisted() {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          var d = JSON.parse(raw);
+          if (Array.isArray(d.O)) {
+            O = d.O.map(function (o) {
+              var tNum = o.table || o.table_number || 1;
+              o.table = tNum;
+              o.table_number = tNum;
+              return o;
+            });
+          }
+          if (Array.isArray(d.E)) E = d.E;
+          if (Array.isArray(d.V)) V = d.V;
+          if (Array.isArray(d.ST)) ST = d.ST;
+          if (Array.isArray(d.AT)) AT = d.AT;
+          if (d.base) base = d.base;
+          if (Array.isArray(d.menu) && d.menu.length) menu = d.menu;
+          if (d.tableCount) tableCount = d.tableCount;
+          if (Array.isArray(d.stockMovements)) stockMovements = d.stockMovements;
+          if (d.currentQrUrl) currentQrUrl = d.currentQrUrl;
+          if (d.ownerPin) ownerPin = d.ownerPin;
+        }
+      } catch (e) { }
+    }
+
+    try {
+      if (window.BroadcastChannel) {
+        window._bc = new BroadcastChannel('bnb_cafe_sync_channel');
+        window._bc.onmessage = function () {
+          loadPersisted();
+          buildTables();
+          buildMenu();
+          paint();
+        };
+      }
+    } catch (e) { }
+
+    window.addEventListener('storage', function (ev) {
+      if (ev.key === STORAGE_KEY && ev.newValue) {
+        loadPersisted();
+        buildTables();
+        buildMenu();
+        paint();
+      }
+    });
+
+    // Setup Live WebSocket connection to Backend (Supports ws:// and wss://)
+    var ws = null;
+    function initWebSocket() {
+      var loc = window.location;
+      var isHttps = loc.protocol === 'https:';
+      var proto = isHttps ? 'wss://' : 'ws://';
+      var wsHost = loc.hostname;
+      var wsPort = loc.port ? (':' + loc.port) : '';
+
+      if (loc.protocol === 'file:' || !wsHost) {
+        wsHost = '127.0.0.1';
+        wsPort = ':8000';
+        proto = 'ws://';
+      }
+
+      var wsUrl = proto + wsHost + wsPort + '/ws/kitchen';
+
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onopen = function () {
+          $('mode').textContent = isHttps ? '🌐 Online Cloud Live Connected' : '📶 Cafe Wi-Fi Live Connected';
+        };
+        ws.onmessage = function (ev) {
+          try {
+            var data = JSON.parse(ev.data);
+            if (data.event === 'new_order') {
+              var ord = data.order;
+              var tNum = ord.table || ord.table_number || 1;
+              ord.table = tNum;
+              ord.table_number = tNum;
+              var exists = O.some(function (x) { return x.id === ord.id });
+              if (!exists) {
+                O.unshift(ord);
+                persist();
+                playSound('order');
+                toast('Naya Order: Table ' + tNum);
+                paint();
+              }
+            } else if (data.event === 'status_change') {
+              var target = O.find(function (x) { return x.id === data.order_id });
+              if (target) {
+                target.status = data.status;
+                persist();
+                if (data.status === 'ready') playSound('ready');
+                paint();
+              }
+            } else if (data.event === 'order_paid') {
+              var target = O.find(function (x) { return x.id === data.order_id });
+              if (target) {
+                target.paid = data.paid_method;
+                target.paidAt = Date.now();
+                if (data.total_paise) target.total_paise = data.total_paise;
+                persist();
+                paint();
+              }
+            }
+          } catch (err) { }
+        };
+        ws.onerror = function () {
+          $('mode').textContent = 'POS Offline Local Mode';
+        };
+        ws.onclose = function () {
+          setTimeout(initWebSocket, 5000);
+        };
+      } catch (e) { }
+    }
+    setTimeout(initWebSocket, 800);
+
+    // Fetch dynamic online cloud URL from backend
+    function fetchOnlineUrl() {
+      fetch('/api/online-url')
+        .then(function (res) { return res.json() })
+        .then(function (d) {
+          if (d && d.active && d.online_url) {
+            activeOnlineUrl = d.online_url;
+            if (currentUrlMode === 'online') {
+              currentQrUrl = activeOnlineUrl;
+              renderQrCodes(currentQrUrl);
+            }
+            var op = $('onlinePill');
+            if (op) op.textContent = '🌐 Online Cloud Active';
+          }
+        })
+        .catch(function () { });
+    }
+    fetchOnlineUrl();
+    setInterval(fetchOnlineUrl, 30000);
+
+    window.switchToUrlMode = function (mode) {
+      currentUrlMode = mode;
+      localStorage.setItem('bnb_url_mode', mode);
+
+      var targetUrl = (mode === 'online' && activeOnlineUrl) ? activeOnlineUrl : LOCAL_WIFI_URL;
+      renderQrCodes(targetUrl);
+
+      var bOnline = $('btnModeOnline'), bWifi = $('btnModeWifi');
+      var mOnline = $('modalBtnOnline'), mWifi = $('modalBtnWifi');
+      if (mode === 'online') {
+        if (bOnline) { bOnline.className = 'sm pri'; bWifi.className = 'sm sec'; }
+        if (mOnline) { mOnline.className = 'sm pri'; mWifi.className = 'sm sec'; }
+        toast('Online Cloud Mode Active (Bina Wi-Fi ke chalega)');
+      } else {
+        if (bOnline) { bOnline.className = 'sm sec'; bWifi.className = 'sm pri'; }
+        if (mOnline) { mOnline.className = 'sm sec'; mWifi.className = 'sm pri'; }
+        toast('Cafe Wi-Fi Mode Active (Local IP: 172.20.10.6)');
+      }
+    };
+
+    // --- QR CODE GENERATION & PHONE DIRECT WAITER URL ---
+    function getWaiterDirectUrl(baseUrl) {
+      var u = (baseUrl || currentQrUrl).replace(/\/$/, '');
+      // Appends ?role=waiter#waiter so phones open ONLY Waiter screen!
+      return u + '/?role=waiter#waiter';
+    }
+
+    function renderQrCodes(url) {
+      if (!url) url = currentQrUrl;
+      currentQrUrl = url;
+      if ($('customQrUrl')) $('customQrUrl').value = url;
+
+      // The QR encodes the direct Waiter URL with security lock
+      var waiterUrl = getWaiterDirectUrl(url);
+      if ($('modalQrUrlText')) $('modalQrUrlText').textContent = waiterUrl;
+
+      var encoded = encodeURIComponent(waiterUrl);
+      var qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=4&data=' + encoded;
+
+      var dImg = $('dashQrImg');
+      var mImg = $('modalQrImg');
+      var dCanvas = $('dashQrCanvas');
+      var mCanvas = $('modalQrCanvas');
+
+      if (dImg) {
+        dImg.src = qrImgUrl;
+        dImg.onerror = function () {
+          dImg.style.display = 'none';
+          if (dCanvas) { dCanvas.style.display = 'block'; drawOfflineQr(dCanvas, waiterUrl); }
+        };
+        dImg.onload = function () {
+          dImg.style.display = 'block';
+          if (dCanvas) dCanvas.style.display = 'none';
+        };
+      }
+
+      if (mImg) {
+        mImg.src = qrImgUrl;
+        mImg.onerror = function () {
+          mImg.style.display = 'none';
+          if (mCanvas) { mCanvas.style.display = 'block'; drawOfflineQr(mCanvas, waiterUrl); }
+        };
+        mImg.onload = function () {
+          mImg.style.display = 'block';
+          if (mCanvas) mCanvas.style.display = 'none';
+        };
+      }
+    }
+
+    // Fallback Canvas QR Renderer
+    function drawOfflineQr(canvas, text) {
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var size = canvas.width;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, size, size);
+
+      var n = 25;
+      var cellSize = Math.floor(size / n);
+      var offset = Math.floor((size - n * cellSize) / 2);
+
+      function hash(str, seed) {
+        var h = seed || 0;
+        for (var i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        return Math.abs(h);
+      }
+
+      function drawFinder(r0, c0) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(offset + c0 * cellSize, offset + r0 * cellSize, 7 * cellSize, 7 * cellSize);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(offset + (c0 + 1) * cellSize, offset + (r0 + 1) * cellSize, 5 * cellSize, 5 * cellSize);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(offset + (c0 + 2) * cellSize, offset + (r0 + 2) * cellSize, 3 * cellSize, 3 * cellSize);
+      }
+      drawFinder(0, 0);
+      drawFinder(0, n - 7);
+      drawFinder(n - 7, 0);
+
+      ctx.fillStyle = '#000';
+      for (var r = 0; r < n; r++) {
+        for (var c = 0; c < n; c++) {
+          var inFinder = (r < 8 && c < 8) || (r < 8 && c >= n - 8) || (r >= n - 8 && c < 8);
+          if (!inFinder) {
+            var bit = (hash(text + r, c * 37) % 7) < 3;
+            if (bit) ctx.fillRect(offset + c * cellSize, offset + r * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+
+    window.openQrModal = function () {
+      $('qr-modal').style.display = 'flex';
+      renderQrCodes(currentQrUrl);
+    };
+    window.closeQrModal = function () {
+      $('qr-modal').style.display = 'none';
+    };
+    window.copyCurrentQrUrl = function () {
+      var wUrl = getWaiterDirectUrl(currentQrUrl);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(wUrl).then(function () {
+          toast('Waiter link copied!');
+        }).catch(function () { });
+      } else {
+        var inp = document.createElement('input');
+        inp.value = wUrl;
+        document.body.appendChild(inp);
+        inp.select();
+        document.execCommand('copy');
+        document.body.removeChild(inp);
+        toast('Waiter link copied!');
+      }
+    };
+
+    if ($('btnUpdateQr')) {
+      $('btnUpdateQr').onclick = function () {
+        var val = $('customQrUrl').value.trim();
+        if (val) {
+          renderQrCodes(val);
+          persist();
+          toast('QR Code updated for Waiter!');
+        }
+      };
+    }
+
+    if ($('btnCopyUrl')) {
+      $('btnCopyUrl').onclick = copyCurrentQrUrl;
+    }
+
+    // --- OWNER SECURITY PIN PROTECTION ---
+    window.requestRoleAccess = function (role) {
+      if (role === 'waiter') {
+        selectRole('waiter');
+        closeRoleModal();
+        return;
+      }
+      // All other roles (Owner, Manager, Cashier, Kitchen) require Owner PIN
+      pendingRoleRequest = role;
+      closeRoleModal();
+      openPinModal();
+    };
+
+    window.openPinModal = function () {
+      $('inputPin').value = '';
+      $('pin-modal').style.display = 'flex';
+      setTimeout(function () { $('inputPin').focus(); }, 150);
+    };
+
+    window.closePinModal = function () {
+      $('pin-modal').style.display = 'none';
+      pendingRoleRequest = null;
+    };
+
+    window.verifyOwnerPin = function (e) {
+      e.preventDefault();
+      var entered = $('inputPin').value.trim();
+      if (entered === ownerPin) {
+        var targetRole = pendingRoleRequest || 'owner';
+        selectRole(targetRole);
+        closePinModal();
+        toast('PIN Verified! Logged in as ' + ROLE_CONFIG[targetRole].name);
+      } else {
+        alert('Galat PIN! Access Denied.');
+        $('inputPin').value = '';
+        $('inputPin').focus();
+      }
+    };
+
+    // Role Configuration
+    var ROLE_CONFIG = {
+      owner: { name: 'Owner', icon: '👑', tabs: ['o', 'w', 'k', 'b', 'r'], defaultTab: 'o' },
+      manager: { name: 'Manager', icon: '💼', tabs: ['o', 'w', 'k', 'b'], defaultTab: 'o' },
+      waiter: { name: 'Waiter', icon: '📱', tabs: ['w'], defaultTab: 'w' },
+      kitchen: { name: 'Kitchen', icon: '👨‍🍳', tabs: ['k'], defaultTab: 'k' },
+      cashier: { name: 'Cashier', icon: '💳', tabs: ['b'], defaultTab: 'b' }
+    };
+
+    window.openRoleModal = function () {
+      $('role-modal').style.display = 'flex';
+    };
+    window.closeRoleModal = function () {
+      $('role-modal').style.display = 'none';
+    };
+    window.selectRole = function (role) {
+      activeRole = role;
+      localStorage.setItem('bnb_active_role', role);
+      applyRolePermissions();
+    };
+
+    function applyRolePermissions() {
+      var cfg = ROLE_CONFIG[activeRole] || ROLE_CONFIG.owner;
+      $('roleText').textContent = cfg.name;
+      $('roleIcon').textContent = cfg.icon;
+
+      // On Phone Mode: strictly HIDE non-waiter tabs and QR button
+      if (isPhoneMode || activeRole === 'waiter') {
+        $('no').style.display = 'none';
+        $('nk').style.display = 'none';
+        $('nc').style.display = 'none';
+        $('nr').style.display = 'none';
+        $('nw').style.display = 'inline-block';
+        $('headerQrBtn').style.display = 'none';
+        $('roleBtn').style.display = 'none'; // Lock switcher on phone
+        location.hash = '#waiter';
+        return;
+      }
+
+      // Desktop / Owner Mode: Show permitted tabs
+      $('headerQrBtn').style.display = 'inline-flex';
+      $('roleBtn').style.display = 'inline-flex';
+      $('no').style.display = cfg.tabs.includes('o') ? 'inline-block' : 'none';
+      $('nw').style.display = cfg.tabs.includes('w') ? 'inline-block' : 'none';
+      $('nk').style.display = cfg.tabs.includes('k') ? 'inline-block' : 'none';
+      $('nc').style.display = cfg.tabs.includes('b') ? 'inline-block' : 'none';
+      $('nr').style.display = cfg.tabs.includes('r') ? 'inline-block' : 'none';
+
+      var curHash = location.hash.slice(1);
+      var hashToTab = { owner: 'o', waiter: 'w', kitchen: 'k', cashier: 'b', report: 'r' };
+      var curTabCode = hashToTab[curHash] || 'o';
+
+      if (!cfg.tabs.includes(curTabCode)) {
+        var tabToHash = { o: 'owner', w: 'waiter', k: 'kitchen', b: 'cashier', r: 'report' };
+        location.hash = '#' + tabToHash[cfg.defaultTab];
+      }
+    }
+
+    // Setup Theme & Sound Controls
+    function initTheme() {
+      var thm = localStorage.getItem('bnb_theme');
+      if (!thm) thm = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      setTheme(thm);
+    }
+    function setTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      localStorage.setItem('bnb_theme', t);
+      var btn = $('thmBtn');
+      if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+    }
+    $('thmBtn').onclick = function () {
+      var cur = document.documentElement.getAttribute('data-theme') || 'light';
+      setTheme(cur === 'dark' ? 'light' : 'dark');
+    };
+
+    var savedSound = localStorage.getItem('bnb_sound');
+    if (savedSound !== null) soundOn = savedSound === '1';
+    $('sndBtn').textContent = soundOn ? '🔊' : '🔇';
+    $('sndBtn').onclick = function () {
+      soundOn = !soundOn;
+      localStorage.setItem('bnb_sound', soundOn ? '1' : '0');
+      $('sndBtn').textContent = soundOn ? '🔊' : '🔇';
+      toast(soundOn ? 'Aawaz chalu' : 'Aawaz band');
+    };
+
+    // Date Navigator Handlers
+    $('btnPrevDay').onclick = function () {
+      viewingDayOffset--;
+      owner();
+    };
+    $('btnNextDay').onclick = function () {
+      if (viewingDayOffset < 0) {
+        viewingDayOffset++;
+        owner();
+      }
+    };
+    $('btnToday').onclick = function () {
+      viewingDayOffset = 0;
+      owner();
+    };
+
+    function getViewingDate() {
+      var d = new Date();
+      d.setDate(d.getDate() + viewingDayOffset);
+      return d;
+    }
+
+    // Build Tables dynamically (Optimized for Android & iPhone Touch)
+    function buildTables() {
+      $('tb').innerHTML = '';
+      for (var t = 1; t <= tableCount; t++) {
+        (function (t) {
+          var b = document.createElement('button');
+          b.id = 'tb-' + t;
+          b.textContent = t;
+          if (table === t) b.classList.add('on');
+          b.onclick = function () {
+            if (table === t) {
+              table = null;
+              b.classList.remove('on');
+            } else {
+              table = t;
+              [].forEach.call($('tb').children, function (x, i) {
+                if (i + 1 === t) x.classList.add('on');
+                else x.classList.remove('on');
+              });
+            }
+            if (navigator.vibrate) navigator.vibrate(20);
+            upd();
+          };
+          $('tb').appendChild(b);
+        })(t);
+      }
+      if ($('cfgTables')) $('cfgTables').value = tableCount;
+      updateTableBadges();
+    }
+
+    if ($('btnSaveTables')) {
+      $('btnSaveTables').onclick = function () {
+        var val = +$('cfgTables').value;
+        if (val >= 4 && val <= 48) {
+          tableCount = val;
+          persist();
+          buildTables();
+          toast('Total tables updated: ' + tableCount);
+        } else {
+          alert('Tables 4 se 48 ke beech rakhein');
+        }
+      };
+    }
+
+    if ($('btnSavePin')) {
+      $('btnSavePin').onclick = function () {
+        var p = $('cfgOwnerPin').value.trim();
+        if (p.length >= 4) {
+          ownerPin = p;
+          persist();
+          toast('Owner PIN update ho gaya: ' + ownerPin);
+        } else {
+          alert('PIN kam se kam 4 digits ka hona chahiye');
+        }
+      };
+    }
+
+    // Build Menu List in Waiter Tab
+    function buildMenu() {
+      $('mn').innerHTML = '';
+      menu.forEach(function (m, i) {
+        var d = document.createElement('div');
+        d.className = 'item';
+        d.innerHTML = '<div>' + esc(m[0]) + '<small>' + fmt(m[1]) + ' · ' + (m[2] || 'Item') + '</small></div><div class="step"><button aria-label="Kam karo ' + esc(m[0]) + '">−</button><b id="q' + i + '">' + (cart[i] || 0) + '</b><button aria-label="Badhao ' + esc(m[0]) + '">+</button></div>';
+        var bs = d.getElementsByTagName('button');
+        bs[0].onclick = function () {
+          if (cart[i]) {
+            cart[i]--;
+            if (!cart[i]) delete cart[i];
+          }
+          if (navigator.vibrate) navigator.vibrate(15);
+          upd();
+        };
+        bs[1].onclick = function () {
+          cart[i] = (cart[i] || 0) + 1;
+          if (navigator.vibrate) navigator.vibrate(15);
+          upd();
+        };
+        $('mn').appendChild(d);
+      });
+      renderOwnerMenu();
+    }
+
+    // Render Menu Management in Owner Tab
+    function renderOwnerMenu() {
+      var ml = $('menuList');
+      if (!ml) return;
+      ml.innerHTML = menu.map(function (m, i) {
+        return '<div class="row"><span><b>' + esc(m[0]) + '</b> (' + esc(m[2] || 'General') + ')</span><div style="display:flex;align-items:center;gap:6px"><b>' + fmt(m[1]) + '</b><button class="sm sec" onclick="editMenuItem(' + i + ')">Edit</button><button class="sm danger" onclick="deleteMenuItem(' + i + ')">✕</button></div></div>';
+      }).join('');
+    }
+
+    window.editMenuItem = function (i) {
+      var cur = menu[i];
+      var newPrice = prompt(cur[0] + ' ki nayi price (₹) likhein:', cur[1]);
+      if (newPrice && +newPrice > 0) {
+        menu[i][1] = +newPrice;
+        persist();
+        buildMenu();
+        upd();
+        toast(cur[0] + ' price updated to ' + fmt(menu[i][1]));
+      }
+    };
+
+    window.deleteMenuItem = function (i) {
+      if (confirm(menu[i][0] + ' ko menu se hatana chahte hain?')) {
+        var name = menu[i][0];
+        menu.splice(i, 1);
+        delete cart[i];
+        persist();
+        buildMenu();
+        upd();
+        toast(name + ' menu se hata diya gaya');
+      }
+    };
+
+    if ($('mf')) {
+      $('mf').onsubmit = function (e) {
+        e.preventDefault();
+        var name = $('mi_name').value.trim();
+        var price = +$('mi_price').value;
+        var cat = $('mi_cat').value;
+        if (!name || !(price > 0)) return;
+        menu.push([name, price, cat]);
+        $('mi_name').value = '';
+        $('mi_price').value = '';
+        persist();
+        buildMenu();
+        upd();
+        toast(name + ' (' + fmt(price) + ') menu me add ho gaya!');
+      };
+    }
+
+    function updateTableBadges() {
+      var active = {};
+      var activeCount = 0;
+      O.forEach(function (o) {
+        var tn = getTableNum(o);
+        if ((o.status !== 'served' && o.status !== 'cancelled') || !o.paid) {
+          if (!active[tn]) {
+            active[tn] = true;
+            activeCount++;
+          }
+        }
+      });
+      for (var t = 1; t <= tableCount; t++) {
+        var b = $('tb-' + t);
+        if (b) {
+          if (active[t]) b.classList.add('has-order');
+          else b.classList.remove('has-order');
+        }
+      }
+      var el = $('activeTablesPill');
+      if (el) el.textContent = 'Active Tables: ' + activeCount + '/' + tableCount;
+    }
+
+    function upd() {
+      var tot = 0, n = 0;
+      menu.forEach(function (m, i) {
+        var q = cart[i] || 0;
+        var el = $('q' + i);
+        if (el) el.textContent = q;
+        tot += q * m[1];
+        n += q;
+      });
+      $('tot').textContent = fmt(tot);
+      $('sel').textContent = table ? 'Table ' + table + ' · ' + n + ' item' : 'Table nahi chuna';
+      $('go').disabled = !(table && n);
+      updateTableBadges();
+    }
+
+    // Send Real Order from Waiter Phone directly to Kitchen Screen
+    $('go').onclick = function () {
+      var items = [];
+      menu.forEach(function (m, i) { if (cart[i]) items.push({ name: m[0], qty: cart[i], price: m[1], price_paise: toPaise(m[1]) }) });
+      if (!table || !items.length) return;
+      var curTable = table;
+      var subtotalPaise = toPaise(items.reduce(function (s, it) { return s + it.qty * it.price }, 0));
+
+      var o = {
+        id: 'l' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        table: curTable,
+        table_number: curTable,
+        customer_name: $('cname').value.trim(),
+        customer_phone: $('cphone').value.trim(),
+        items: items,
+        note: $('note').value.trim(),
+        status: 'new',
+        at: Date.now(),
+        subtotal_paise: subtotalPaise,
+        discount_paise: 0,
+        gst_paise: 0,
+        total_paise: subtotalPaise,
+        total: subtotalPaise / 100
+      };
+
+      items.forEach(function (it) {
+        var r = RC[it.name];
+        if (r) {
+          for (var ing in r) {
+            stockMovements.unshift({
+              type: 'order_deduct',
+              order_id: o.id,
+              table: o.table,
+              item: it.name,
+              ing: ing,
+              used: r[ing] * it.qty,
+              at: Date.now()
+            });
+          }
+        }
+      });
+      if (stockMovements.length > 50) stockMovements = stockMovements.slice(0, 50);
+
+      cart = {};
+      $('note').value = '';
+      $('cname').value = '';
+      $('cphone').value = '';
+      table = null;
+      [].forEach.call($('tb').children, function (x) { x.classList.remove('on') });
+      upd();
+      playSound('order');
+      if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+      toast('Table ' + curTable + ' ka order kitchen bhej diya gaya!');
+
+      try {
+        fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table_number: o.table,
+            customer_name: o.customer_name,
+            customer_phone: o.customer_phone,
+            note: o.note,
+            items: items
+          })
+        }).catch(function () { });
+      } catch (e) { }
+
+      O.unshift(o);
+      persist();
+      paint();
+    };
+
+    function save(o, patch) {
+      var prev = {}, k;
+      for (k in patch) prev[k] = o[k];
+      Object.assign(o, patch);
+      persist();
+      paint();
+
+      if (patch.status) {
+        try {
+          fetch('/api/orders/' + o.id + '/status?status=' + patch.status, { method: 'PATCH' }).catch(function () { });
+        } catch (e) { }
+      }
+      if (patch.paid) {
+        try {
+          fetch('/api/orders/' + o.id + '/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paid_method: patch.paid,
+              discount_paise: patch.discount_paise || 0,
+              gst_paise: patch.gst_paise || 0,
+              total_paise: patch.total_paise || toPaise(patch.total || 0)
+            })
+          }).catch(function () { });
+        } catch (e) { }
+      }
+    }
+
+    function setSt(o, s) { save(o, { status: s }) }
+
+    // Cashier view
+    function bill() {
+      var todayStr = new Date().toDateString();
+      var s = { Cash: 0, UPI: 0, Card: 0 };
+
+      O.forEach(function (o) {
+        if (o.paid && new Date(o.paidAt || o.at).toDateString() == todayStr) {
+          var amt = tt(o);
+          s[o.paid] += amt;
+        }
+      });
+
+      var totalCol = s.Cash + s.UPI + s.Card;
+      $('sum').innerHTML = '<div class="big">Aaj ka Collection: ' + fmt(totalCol) + '</div><p class="mode">💵 Cash: ' + fmt(s.Cash) + ' · 📱 UPI: ' + fmt(s.UPI) + ' · 💳 Card: ' + fmt(s.Card) + '</p>';
+
+      var l = O.filter(function (o) { return !o.paid && o.status !== 'cancelled' }).sort(function (a, b) { return a.at - b.at });
+      $('bl').innerHTML = l.length ? '' : '<p class="empty">Koi bill baaki nahi (Sabhi tables free hain)</p>';
+
+      l.forEach(function (o) {
+        var d = document.createElement('div');
+        d.className = 'tk c' + ({ new: 0, cooking: 1, ready: 2, served: 2 }[o.status] || 0);
+        var sub = (o.subtotal_paise ? o.subtotal_paise / 100 : tt(o));
+
+        d.innerHTML = '<div class="top"><span class="big">Table ' + getTableNum(o) + ' · ' + fmt(sub) + '</span><span class="m">' + (SL[o.status] || o.status) + '</span></div>' +
+          (o.customer_name ? '<p class="m"><b>Customer:</b> ' + esc(o.customer_name) + (o.customer_phone ? ' (' + esc(o.customer_phone) + ')' : '') + '</p>' : '') +
+          '<ul>' + o.items.map(function (i) { return '<li>' + i.qty + ' × ' + esc(i.name) + '</li>' }).join('') + '</ul>' +
+          (o.note ? '<p class="m">Note: ' + esc(o.note) + '</p>' : '');
+
+        var cBox = document.createElement('div');
+        cBox.className = 'bill-calc';
+        cBox.innerHTML =
+          '<div class="c-row"><span>Subtotal:</span><b>' + fmt(sub) + '</b></div>' +
+          '<div class="c-row"><span>Discount:</span><select id="disc_type_' + o.id + '"><option value="0">0%</option><option value="5">5%</option><option value="10">10%</option><option value="15">15%</option><option value="flat">Flat ₹</option></select><input type="number" id="disc_val_' + o.id + '" placeholder="₹" style="display:none;width:70px"></div>' +
+          '<div class="c-row"><span><label><input type="checkbox" id="gst_chk_' + o.id + '" checked> GST (5%)</label></span><span id="gst_amt_' + o.id + '">+₹0</span></div>' +
+          '<div class="c-row" style="font-weight:700;font-size:15px;border-top:1px dashed var(--line);padding-top:4px"><span>Payable Total:</span><b id="final_tot_' + o.id + '">' + fmt(sub) + '</b></div>';
+        d.appendChild(cBox);
+
+        function computeBill() {
+          var dt = $('disc_type_' + o.id).value;
+          var dv = +($('disc_val_' + o.id).value) || 0;
+          var disc = 0;
+          if (dt === 'flat') disc = Math.min(sub, dv);
+          else disc = (sub * (+dt)) / 100;
+
+          var afterDisc = Math.max(0, sub - disc);
+          var gstChk = $('gst_chk_' + o.id).checked;
+          var gst = gstChk ? Math.round(afterDisc * 0.05) : 0;
+          var finalAmt = Math.round(afterDisc + gst);
+
+          $('gst_amt_' + o.id).textContent = '+₹' + gst;
+          $('final_tot_' + o.id).textContent = fmt(finalAmt);
+          return { disc: disc, gst: gst, finalAmt: finalAmt };
+        }
+
+        setTimeout(function () {
+          var dtEl = $('disc_type_' + o.id);
+          var dvEl = $('disc_val_' + o.id);
+          var gcEl = $('gst_chk_' + o.id);
+          if (dtEl && dvEl && gcEl) {
+            dtEl.onchange = function () {
+              dvEl.style.display = dtEl.value === 'flat' ? 'inline-block' : 'none';
+              computeBill();
+            };
+            dvEl.oninput = computeBill;
+            gcEl.onchange = computeBill;
+            computeBill();
+          }
+        }, 0);
+
+        var act = document.createElement('div');
+        act.style.display = 'flex';
+        act.style.gap = '6px';
+        act.style.flexWrap = 'wrap';
+        act.style.marginTop = '8px';
+
+        ['Cash', 'UPI', 'Card'].forEach(function (m) {
+          var b = document.createElement('button');
+          b.className = 'pri sm';
+          b.textContent = m + ' se liya';
+          b.onclick = function () {
+            var res = computeBill();
+            var patch = {
+              paid: m,
+              paidAt: Date.now(),
+              subtotal_paise: toPaise(sub),
+              discount_paise: toPaise(res.disc),
+              gst_paise: toPaise(res.gst),
+              total_paise: toPaise(res.finalAmt),
+              total: res.finalAmt
+            };
+            save(o, patch);
+            toast('Table ' + getTableNum(o) + ' ka bill ' + m + ' se chukta hua');
+            openReceipt(o);
+          };
+          act.appendChild(b);
+        });
+
+        var bcan = document.createElement('button');
+        bcan.className = 'sm danger';
+        bcan.textContent = 'Cancel order';
+        bcan.onclick = function () {
+          if (confirm('Table ' + getTableNum(o) + ' ka order cancel karna hai?')) {
+            setSt(o, 'cancelled');
+            toast('Order cancel ho gaya', true);
+          }
+        };
+        act.appendChild(bcan);
+
+        d.appendChild(act);
+        $('bl').appendChild(d);
+      });
+
+      renderPaidBills();
+    }
+
+    // Render Paid Bills History
+    function renderPaidBills() {
+      var pd = $('pbl');
+      if (!pd) return;
+
+      var filterType = $('billDateFilter') ? $('billDateFilter').value : 'today';
+      var todayStr = new Date().toDateString();
+      var yest = new Date(); yest.setDate(yest.getDate() - 1);
+      var yestStr = yest.toDateString();
+
+      var filtered = O.filter(function (o) {
+        if (!o.paid) return false;
+        var dStr = new Date(o.paidAt || o.at).toDateString();
+        if (filterType === 'today') return dStr === todayStr;
+        if (filterType === 'yesterday') return dStr === yestStr;
+        return true;
+      });
+
+      pd.innerHTML = filtered.length ? filtered.map(function (o) {
+        var finalP = tt(o);
+        var dt = new Date(o.paidAt || o.at);
+        var dateLabel = dt.toLocaleDateString('en-IN') + ' ' + dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        return '<div class="row"><span>Table ' + getTableNum(o) + (o.customer_name ? ' · ' + esc(o.customer_name) : '') + ' (' + o.items.map(function (i) { return i.qty + ' ' + esc(i.name) }).join(', ') + ')<br><small class="lab">' + dateLabel + ' · ' + o.paid + '</small></span><div style="display:flex;align-items:center;gap:8px"><b>' + fmt(finalP) + '</b><button class="sm sec" onclick="openReceiptById(\'' + o.id + '\')">🖨️ Receipt</button></div></div>';
+      }).join('') : '<p class="empty">Is filter ke mutabiq koi chukta bill nahi hai</p>';
+    }
+
+    if ($('billDateFilter')) {
+      $('billDateFilter').onchange = renderPaidBills;
+    }
+
+    // Receipt Generation & Print
+    window.openReceiptById = function (id) {
+      var order = O.find(function (x) { return x.id === id });
+      if (order) openReceipt(order);
+    };
+
+    window.openReceipt = function (o) {
+      var sub = (o.subtotal_paise ? o.subtotal_paise / 100 : tt(o));
+      var disc = (o.discount_paise ? o.discount_paise / 100 : 0);
+      var gst = (o.gst_paise ? o.gst_paise / 100 : 0);
+      var tot = (o.total_paise ? o.total_paise / 100 : tt(o));
+      var dt = new Date(o.paidAt || o.at);
+
+      var html =
+        '<div class="rc-header">' +
+        '<h2>BREW &amp; BYTES CAFE</h2>' +
+        '<p>Fresh Coffee, Bites &amp; Code</p>' +
+        '<p>TAX INVOICE / CASH MEMO</p>' +
+        '<p>Order: #' + o.id.slice(-6).toUpperCase() + ' · Table: ' + getTableNum(o) + '</p>' +
+        '<p>' + dt.toLocaleDateString('en-IN') + ' ' + dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) + '</p>' +
+        (o.customer_name ? '<p><b>Customer:</b> ' + esc(o.customer_name) + (o.customer_phone ? ' (' + esc(o.customer_phone) + ')' : '') + '</p>' : '') +
+        '</div>' +
+        '<table class="rc-table">' +
+        '<thead><tr><th>ITEM</th><th style="text-align:center">QTY</th><th style="text-align:right">PRICE</th><th style="text-align:right">AMT</th></tr></thead>' +
+        '<tbody>' +
+        o.items.map(function (it) {
+          var p = it.price || pr(it.name);
+          return '<tr><td>' + esc(it.name) + '</td><td style="text-align:center">' + it.qty + '</td><td style="text-align:right">₹' + p + '</td><td style="text-align:right">₹' + (it.qty * p) + '</td></tr>';
+        }).join('') +
+        '</tbody>' +
+        '</table>' +
+        '<div class="rc-summary">' +
+        '<div class="rc-row"><span>Subtotal:</span><span>₹' + sub + '</span></div>' +
+        (disc > 0 ? '<div class="rc-row"><span>Discount:</span><span>−₹' + disc + '</span></div>' : '') +
+        (gst > 0 ? '<div class="rc-row"><span>GST (5%):</span><span>+₹' + gst + '</span></div>' : '') +
+        '<div class="rc-row rc-total"><span>GRAND TOTAL:</span><span>' + fmt(tot) + '</span></div>' +
+        '<div class="rc-row" style="font-weight:600"><span>Paid via:</span><span>' + (o.paid || 'Cash') + ' ✓</span></div>' +
+        '</div>' +
+        '<div class="rc-footer">' +
+        '<p>Thank you for visiting Brew &amp; Bytes! 😊</p>' +
+        '<p style="font-size:10px;color:#888">Keep Brewin\' &amp; Codin\'</p>' +
+        '</div>';
+
+      $('receipt-content').innerHTML = html;
+      $('receipt-overlay').style.display = 'flex';
+    };
+
+    window.closeReceipt = function () {
+      $('receipt-overlay').style.display = 'none';
+    };
+
+    // Master Paint function
+    function paint() {
+      var live = O.filter(function (o) { return o.status != 'served' && o.status != 'cancelled' }).sort(function (a, b) { return a.at - b.at });
+
+      var newCount = 0, cookingCount = 0, readyCount = 0;
+      [0, 1, 2].forEach(function (n) {
+        var st = ['new', 'cooking', 'ready'][n], l = live.filter(function (o) { return o.status == st });
+        if (n === 0) newCount = l.length;
+        if (n === 1) cookingCount = l.length;
+        if (n === 2) readyCount = l.length;
+
+        $('h' + n).textContent = ['Naya', 'Ban raha hai', 'Ready'][n] + ' (' + l.length + ')';
+        $('c' + n).innerHTML = l.length ? '' : '<p class="empty">Koi order nahi</p>';
+        l.forEach(function (o) {
+          var tn = getTableNum(o);
+          var d = document.createElement('div'), late = n < 2 && Date.now() - o.at > 600000;
+          d.className = 'tk c' + n + (late ? ' late' : '');
+          d.innerHTML = '<div class="top"><span class="big">Table ' + tn + '</span><span class="m">' + ago(o.at) + '</span></div>' +
+            (o.customer_name ? '<p class="m"><b>Customer:</b> ' + esc(o.customer_name) + '</p>' : '') +
+            '<ul>' + o.items.map(function (i) { return '<li>' + i.qty + ' × ' + esc(i.name) + '</li>' }).join('') + '</ul>' +
+            (o.note ? '<p class="m">Note: ' + esc(o.note) + '</p>' : '');
+
+          var act = document.createElement('div');
+          act.style.display = 'flex';
+          act.style.gap = '6px';
+          act.style.flexWrap = 'wrap';
+          act.style.marginTop = '8px';
+
+          if (n === 0) {
+            var b = document.createElement('button');
+            b.className = 'pri sm';
+            b.textContent = 'Banana shuru karo →';
+            b.onclick = function () { setSt(o, 'cooking'); toast('Table ' + tn + ' cooking shuru') };
+            act.appendChild(b);
+
+            var bc = document.createElement('button');
+            bc.className = 'sm danger';
+            bc.textContent = 'Cancel';
+            bc.onclick = function () {
+              if (confirm('Kya Table ' + tn + ' ka ye order cancel karna hai?')) {
+                setSt(o, 'cancelled');
+                toast('Order cancel kar diya gaya', true);
+              }
+            };
+            act.appendChild(bc);
+          } else if (n === 1) {
+            var b = document.createElement('button');
+            b.className = 'pri sm';
+            b.textContent = 'Ready hai ✓';
+            b.onclick = function () {
+              setSt(o, 'ready');
+              playSound('ready');
+              toast('Table ' + tn + ' ka order ready hai!');
+            };
+            act.appendChild(b);
+
+            var bw = document.createElement('button');
+            bw.className = 'sm';
+            bw.textContent = '← Wapas Naya';
+            bw.onclick = function () { setSt(o, 'new') };
+            act.appendChild(bw);
+          } else if (n === 2) {
+            var b = document.createElement('button');
+            b.className = 'pri sm';
+            b.textContent = 'Serve ho gaya ✓';
+            b.onclick = function () { setSt(o, 'served'); toast('Table ' + tn + ' serve ho gaya') };
+            act.appendChild(b);
+
+            var bw = document.createElement('button');
+            bw.className = 'sm';
+            bw.textContent = '← Cooking';
+            bw.onclick = function () { setSt(o, 'cooking') };
+            act.appendChild(bw);
+          }
+
+          d.appendChild(act);
+          $('c' + n).appendChild(d);
+        });
+      });
+
+      var kn = $('kpiNew'), kc = $('kpiCooking'), kr = $('kpiReady');
+      if (kn) kn.textContent = newCount;
+      if (kc) kc.textContent = cookingCount;
+      if (kr) kr.textContent = readyCount;
+
+      var r = live.filter(function (o) { return o.status == 'ready' });
+      $('rd').innerHTML = '';
+      r.forEach(function (o) {
+        var tn = getTableNum(o);
+        var d = document.createElement('div');
+        d.className = 'ready';
+        d.innerHTML = '<span><b>Table ' + tn + '</b> ka order ready hai, utha lo</span>';
+        var b = document.createElement('button');
+        b.className = 'pri sm';
+        b.textContent = 'Serve ho gaya ✓';
+        b.onclick = function () { setSt(o, 'served'); toast('Table ' + tn + ' serve ho gaya') };
+        d.appendChild(b);
+        $('rd').appendChild(d);
+      });
+
+      updateTableBadges();
+      bill();
+      owner();
+      ods();
+    }
+
+    // Owner Tab calculations (Supports Date Navigation for Past History)
+    function owner() {
+      var viewDate = getViewingDate();
+      var day = viewDate.toDateString();
+      var isToday = (viewingDayOffset === 0);
+
+      $('btnNextDay').disabled = isToday;
+      $('viewingDateLabel').textContent = isToday ? '📅 Aaj (Today)' : '📅 ' + viewDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+      $('labSale').textContent = isToday ? 'Aaj ki Total Sale (Paid)' : viewDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' ki Sale';
+      $('labExp').textContent = isToday ? 'Aaj ka Kharcha' : viewDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' ka Kharcha';
+      $('labProf').textContent = isToday ? 'Aaj ka Asli Profit' : viewDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' ka Profit';
+
+      var sale = 0, pay = { Cash: 0, UPI: 0, Card: 0 }, cnt = {}, ex = 0, by = {}, used = {}, k;
+      var paidCount = 0;
+
+      O.forEach(function (o) {
+        if (o.status === 'cancelled') return;
+        var t = tt(o);
+        if (o.paid && new Date(o.paidAt || o.at).toDateString() == day) {
+          sale += t;
+          pay[o.paid] = (pay[o.paid] || 0) + t;
+          paidCount++;
+        }
+        if (new Date(o.at).toDateString() == day) {
+          o.items.forEach(function (i) { cnt[i.name] = (cnt[i.name] || 0) + i.qty });
+        }
+        if (o.at >= (base.at || 0)) {
+          o.items.forEach(function (i) {
+            var r = RC[i.name];
+            if (r) {
+              for (k in r) used[k] = (used[k] || 0) + r[k] * i.qty;
+            }
+          });
+        }
+      });
+
+      E.forEach(function (x) {
+        if (new Date(x.at).toDateString() == day) {
+          ex += x.a;
+          by[x.c] = (by[x.c] || 0) + x.a;
+        }
+      });
+
+      $('osale').textContent = fmt(sale);
+      $('oexp').textContent = fmt(ex);
+      $('oprof').textContent = fmt(sale - ex);
+      $('oprof').style.color = sale - ex < 0 ? 'var(--warn)' : 'var(--ok)';
+
+      var kCash = $('kpiCash'), kUPI = $('kpiUPI'), kCard = $('kpiCard'), kBills = $('kpiBills');
+      if (kCash) kCash.textContent = fmt(pay.Cash);
+      if (kUPI) kUPI.textContent = fmt(pay.UPI);
+      if (kCard) kCard.textContent = fmt(pay.Card);
+      if (kBills) kBills.textContent = paidCount + ' bills';
+
+      $('osp').innerHTML = Object.keys(pay).map(function (m) {
+        return '<i style="width:' + (sale ? pay[m] / sale * 100 : 0) + '%;background:' + PC[m] + '"></i>';
+      }).join('');
+      $('olg').innerHTML = Object.keys(pay).map(function (m) {
+        return '<span><b style="color:' + PC[m] + '">●</b> ' + m + ' ' + fmt(pay[m]) + '</span>';
+      }).join('');
+
+      var tp = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a] })[0];
+      $('otop').textContent = tp ? (isToday ? 'Aaj' : viewDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })) + ' sabse zyada bika: ' + tp + ' (' + cnt[tp] + ')' : 'Is din koi order nahi hua tha';
+
+      // Stock tracking & Low Stock Alert
+      var low = [];
+      $('ost').innerHTML = Object.keys(SK).map(function (c) {
+        var s = SK[c], baseCap = (base.q && base.q[c] !== undefined) ? base.q[c] : s[2];
+        var q = Math.max(0, baseCap - (used[c] || 0)), p = s[2] ? q / s[2] : 1, l = p < .25;
+        if (l) low.push(s[0]);
+        return '<div class="row' + (l ? ' low' : '') + '" style="display:block"><div style="display:flex;justify-content:space-between"><span>' + s[0] + '</span><b>' + (+q.toFixed(2)) + ' ' + s[1] + '</b></div><div class="bar"><i style="width:' + Math.max(2, Math.min(100, p * 100)) + '%"></i></div></div>';
+      }).join('');
+      $('oal').innerHTML = low.length ? '<div class="alert">⚠️ <b>Stock Alert:</b> ' + low.join(', ') + ' khatam hone wala hai! Turant order karein.</div>' : '';
+
+      var sml = $('sml');
+      if (sml) {
+        sml.innerHTML = stockMovements.length ? stockMovements.slice(0, 15).map(function (sm) {
+          return '<div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(0,0,0,0.06);padding:3px 0">' +
+            '<span>' + (sm.type === 'restock' ? '<b>RESTOCK:</b> All items full' : 'Table ' + sm.table + ' · ' + esc(sm.item) + ' (' + (SK[sm.ing] ? SK[sm.ing][0] : sm.ing) + ')') + '</span>' +
+            '<span class="lab">' + (sm.type === 'restock' ? '100%' : '-' + sm.used.toFixed(2) + ' ' + (SK[sm.ing] ? SK[sm.ing][1] : '')) + ' · ' + ago(sm.at) + '</span>' +
+            '</div>';
+        }).join('') : '<p class="empty" style="margin:0">Abhi tak koi movement nahi</p>';
+      }
+
+      $('oc').innerHTML = Object.keys(by).length ? Object.keys(by).map(function (c) {
+        return '<div class="row"><span>' + esc(c) + '</span><b>' + fmt(by[c]) + '</b></div>';
+      }).join('') : '<p class="empty">Is din ka koi kharcha nahi tha</p>';
+
+      rep();
+    }
+
+    // Expense form
+    $('ef').onsubmit = function (e) {
+      e.preventDefault();
+      var a = +$('ea').value;
+      if (!(a > 0)) return;
+      var x = { c: $('ec').value, a: a, at: Date.now() };
+      $('ea').value = '';
+
+      try {
+        fetch('/api/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: x.c, amount_paise: toPaise(x.a) })
+        }).catch(function () { });
+      } catch (err) { }
+
+      E.push(x);
+      persist();
+      owner();
+      toast('Kharcha add ho gaya: ' + fmt(x.a));
+    };
+
+    // Restock button
+    $('rs').onclick = function () {
+      var q = {}, k;
+      for (k in SK) q[k] = SK[k][2];
+      var b = { at: Date.now(), q: q };
+      stockMovements.unshift({ type: 'restock', at: Date.now() });
+
+      try {
+        fetch('/api/stock/restock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note: 'Owner Restock' })
+        }).catch(function () { });
+      } catch (err) { }
+
+      base = b;
+      persist();
+      owner();
+      toast('Stock restock ho gaya! Sab full hai.');
+    };
+
+    // Vendor and Staff calculations
+    function ods() {
+      var due = {}, tot = 0;
+      V.forEach(function (x) { due[x.v] = (due[x.v] || 0) + (x.type == 'bill' ? x.a : -x.a) });
+      var ks = Object.keys(due).filter(function (n) { return due[n] > 0 });
+      $('vl').innerHTML = ks.length ? ks.map(function (n) {
+        tot += due[n];
+        return '<div class="row"><span>' + esc(n) + '</span><b>' + fmt(due[n]) + '</b></div>';
+      }).join('') + '<div class="row" style="font-weight:700"><span>Total baaki</span><b>' + fmt(tot) + '</b></div>' : '<p class="empty">Kisi vendor ka paisa baaki nahi</p>';
+
+      var today = ymd(), mon = today.slice(0, 7);
+      $('sl').innerHTML = ST.length ? ST.map(function (s) {
+        var days = 0, here = false;
+        AT.forEach(function (a) {
+          if (a.s == s.id && a.p) {
+            if (a.d.slice(0, 7) == mon) days++;
+            if (a.d == today) here = true;
+          }
+        });
+        return '<div class="row" data-id="' + s.id + '" style="gap:8px"><span>' + esc(s.n) + '<br><small class="lab">' + esc(s.role) + ' · ' + esc(s.shift) + ' · ' + days + ' din present · banti salary ' + fmt(Math.round(s.sal / 30 * days)) + ' (mahine ki ' + fmt(s.sal) + ')</small></span><div style="display:flex;gap:6px"><button class="sm ' + (here ? 'pri' : '') + '" data-t="' + (here ? 1 : 0) + '">' + (here ? 'Present ✓' : 'Absent') + '</button><button class="sm danger" data-del="' + s.id + '" title="Staff ko hatayein">✕</button></div></div>';
+      }).join('') : '<p class="empty">Staff add karo</p>';
+
+      rep();
+    }
+
+    // Attendance toggle & Staff delete click handler
+    $('sl').onclick = function (e) {
+      var delBtn = e.target.closest('[data-del]');
+      if (delBtn) {
+        var sid = delBtn.getAttribute('data-del');
+        var staffObj = ST.find(function (x) { return x.id == sid });
+        if (confirm((staffObj ? staffObj.n : 'Staff') + ' ko staff list se hatayein?')) {
+          ST = ST.filter(function (x) { return x.id != sid });
+          AT = AT.filter(function (x) { return x.s != sid });
+          persist();
+          ods();
+          toast('Staff hata diya gaya');
+        }
+        return;
+      }
+      var b = e.target.closest('button[data-t]'), r = b && b.closest('[data-id]');
+      if (!r) return;
+      var id = r.getAttribute('data-id'), d = ymd(), a = { d: d, s: id, p: b.getAttribute('data-t') != '1' };
+
+      try {
+        fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staff_id: a.s, date_str: a.d, is_present: a.p })
+        }).catch(function () { });
+      } catch (err) { }
+
+      AT = AT.filter(function (x) { return !(x.s == id && x.d == d) });
+      AT.push(a);
+      persist();
+      ods();
+      toast(a.p ? 'Present mark kiya ✓' : 'Absent mark kiya');
+    };
+
+    // Vendor form
+    $('vf').onsubmit = function (e) {
+      e.preventDefault();
+      var vn = $('vn').value.trim(), va = +$('va').value, vt = $('vt').value;
+      if (!vn || !(va > 0)) return;
+      var x = { v: vn, a: va, type: vt, at: Date.now() };
+      $('vn').value = '';
+      $('va').value = '';
+      var ex = x.type == 'paid' ? { c: 'Vendor bill', a: x.a, at: x.at } : null;
+
+      try {
+        fetch('/api/vendors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendor_name: x.v, amount_paise: toPaise(x.a), entry_type: x.type })
+        }).catch(function () { });
+      } catch (err) { }
+
+      V.push(x);
+      if (ex) E.push(ex);
+      persist();
+      ods();
+      owner();
+      toast(x.type == 'paid' ? vn + ' ko ' + fmt(va) + ' chukta kiya' : vn + ' ka ' + fmt(va) + ' ka bill add hua');
+    };
+
+    // Staff form (Permanently stored staff member)
+    $('sf').onsubmit = function (e) {
+      e.preventDefault();
+      var sn = $('sn').value.trim(), sr = $('sr').value, sh = $('sh').value, ss = +$('ss').value;
+      if (!sn || !(ss > 0)) return;
+      var x = { n: sn, role: sr, shift: sh, sal: ss };
+      $('sn').value = '';
+      $('ss').value = '';
+
+      try {
+        fetch('/api/staff', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: x.n, role: x.role, shift: x.shift, salary_paise: toPaise(x.sal) })
+        }).catch(function () { });
+      } catch (err) { }
+
+      x.id = 'l' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      ST.push(x);
+      persist();
+      ods();
+      toast(sn + ' staff me jud gaya (Permanent save)');
+    };
+
+    // Monthly Report calculations
+    function rep() {
+      var n = new Date(), d0 = new Date(n.getFullYear(), n.getMonth() + RM, 1), mk = ymd(d0.getTime()).slice(0, 7);
+      var sale = 0, pay = { Cash: 0, UPI: 0, Card: 0 }, cnt = {}, rev = {}, ex = 0, by = {}, sal = 0, rows = [];
+
+      O.forEach(function (o) {
+        if (o.status === 'cancelled') return;
+        if (o.paid && ymd(o.paidAt || o.at).slice(0, 7) == mk) {
+          var t = tt(o);
+          sale += t;
+          pay[o.paid] = (pay[o.paid] || 0) + t;
+        }
+        if (ymd(o.at).slice(0, 7) == mk) {
+          o.items.forEach(function (i) {
+            cnt[i.name] = (cnt[i.name] || 0) + i.qty;
+            rev[i.name] = (rev[i.name] || 0) + i.qty * pr(i.name);
+          });
+        }
+      });
+
+      E.forEach(function (x) {
+        if (ymd(x.at).slice(0, 7) == mk) {
+          ex += x.a;
+          by[x.c] = (by[x.c] || 0) + x.a;
+        }
+      });
+
+      ST.forEach(function (s) {
+        var days = 0;
+        AT.forEach(function (a) { if (a.s == s.id && a.p && a.d.slice(0, 7) == mk) days++ });
+        var e = Math.round(s.sal / 30 * Math.min(days, 30));
+        sal += e;
+        rows.push([s.n, days, e]);
+      });
+
+      var real = sale - ex - sal;
+      $('rm').textContent = d0.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      $('rn').disabled = RM >= 0;
+      $('rp').textContent = fmt(real);
+      $('rp').style.color = real < 0 ? 'var(--warn)' : 'var(--ok)';
+
+      $('rsm').innerHTML = [['Sale (paid orders)', sale], ['Kharcha', ex], ['Staff salary', sal]].map(function (r) {
+        return '<div class="row"><span>' + r[0] + '</span><b>' + fmt(r[1]) + '</b></div>';
+      }).join('');
+
+      $('rpay').textContent = 'Cash ' + fmt(pay.Cash) + ' · UPI ' + fmt(pay.UPI) + ' · Card ' + fmt(pay.Card);
+
+      var ti = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a] }).slice(0, 5), mx = cnt[ti[0]] || 1;
+      $('rt').innerHTML = ti.length ? ti.map(function (k) {
+        return '<div class="row" style="display:block"><div style="display:flex;justify-content:space-between"><span>' + esc(k) + '</span><b>' + cnt[k] + ' bike · ' + fmt(rev[k]) + '</b></div><div class="bar"><i style="width:' + Math.min(100, (cnt[k] / mx * 100)) + '%"></i></div></div>';
+      }).join('') : '<p class="empty">Is mahine koi order nahi</p>';
+
+      var ck = Object.keys(by).sort(function (a, b) { return by[b] - by[a] }), topEx = by[ck[0]] || 1;
+      $('rc').innerHTML = ck.length ? ck.map(function (c) {
+        var pct = ex > 0 ? Math.round(by[c] / ex * 100) : 0;
+        return '<div class="row" style="display:block"><div style="display:flex;justify-content:space-between"><span>' + esc(c) + '</span><b>' + fmt(by[c]) + ' · ' + pct + '%</b></div><div class="bar"><i style="width:' + Math.min(100, (by[c] / topEx * 100)) + '%"></i></div></div>';
+      }).join('') : '<p class="empty">Is mahine koi kharcha nahi</p>';
+
+      $('rhl').textContent = ck.length ? 'Sabse zyada kharcha: ' + esc(ck[0]) + ' (' + fmt(by[ck[0]]) + ')' : '';
+      $('rst').innerHTML = rows.length ? rows.map(function (r) {
+        return '<div class="row"><span>' + esc(r[0]) + ' · ' + r[1] + ' din present</span><b>' + fmt(r[2]) + '</b></div>';
+      }).join('') : '<p class="empty">Staff add nahi hai</p>';
+    }
+
+    $('rpv').onclick = function () { RM--; rep() };
+    $('rn').onclick = function () { if (RM < 0) { RM++; rep() } };
+
+    // Export / Backup Cafe Data
+    $('btnExport').onclick = function () {
+      var backupData = {
+        exported_at: new Date().toISOString(),
+        cafe: "Brew & Bytes",
+        orders: O,
+        expenses: E,
+        vendors: V,
+        staff: ST,
+        attendance: AT,
+        menu: menu
+      };
+      var blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = "Brew_Bytes_Backup_" + ymd() + ".json";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Cafe data backup download ho gaya!');
+    };
+
+    // Close Day
+    $('btnCloseDay').onclick = function () {
+      var unpaidCount = O.filter(function (o) { return !o.paid && o.status !== 'cancelled' }).length;
+      if (unpaidCount > 0) {
+        if (!confirm('Dhyan dein: ' + unpaidCount + ' active orders ka bill abhi baaki hai! Kya aap din close karke naya din shuru karna chahte hain? (Past history aur staff surakshit rahega)')) return;
+      } else {
+        if (!confirm('Aaj ka din close karein? Sabhi tables fresh aur free ho jayenge. Saari past history aur staff surakshit rahega.')) return;
+      }
+      table = null;
+      cart = {};
+      [].forEach.call($('tb').children, function (x) { x.classList.remove('on') });
+      persist();
+      paint();
+      upd();
+      toast('Naya din shuru! Tables free hain, staff aur past history surakshit hai.');
+    };
+
+    // Tab Switching
+    function show() {
+      var h = location.hash.slice(1);
+      if (isPhoneMode || activeRole === 'waiter') {
+        h = 'waiter';
+      } else if (h != 'waiter' && h != 'kitchen' && h != 'cashier' && h != 'report') {
+        h = 'owner';
+      }
+
+      [['o', 'owner'], ['w', 'waiter'], ['k', 'kitchen'], ['b', 'cashier'], ['r', 'report']].forEach(function (p) {
+        $(p[0]).hidden = (h != p[1]);
+      });
+      [['no', 'owner'], ['nw', 'waiter'], ['nk', 'kitchen'], ['nc', 'cashier'], ['nr', 'report']].forEach(function (p) {
+        $(p[0]).className = (h == p[1] ? 'on' : '');
+      });
+      paint();
+    }
+
+    window.addEventListener('hashchange', show);
+
+    // Initial bootstrap
+    var savedRole = localStorage.getItem('bnb_active_role');
+    if (savedRole && ROLE_CONFIG[savedRole] && !isPhoneMode) activeRole = savedRole;
+    initTheme();
+    loadPersisted();
+    buildTables();
+    buildMenu();
+    applyRolePermissions();
+    renderQrCodes(currentQrUrl);
+    if (!location.hash) location.hash = isPhoneMode ? '#waiter' : '#owner';
+    show();
+    upd();
+    paint();
+    setInterval(paint, 20000);
+  </script>
+</body>
+
+</html>
