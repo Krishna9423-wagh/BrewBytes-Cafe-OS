@@ -265,9 +265,11 @@ def get_orders(status: Optional[str] = None):
 
     for o in orders:
         cursor.execute("SELECT item_name, qty, unit_price_paise FROM order_items WHERE order_id = ?", (o["id"],))
-        o["items"] = [dict(r) for r in cursor.fetchall()]
+        rows = cursor.fetchall()
+        o["items"] = [{"name": r["item_name"], "item_name": r["item_name"], "qty": r["qty"], "unit_price_paise": r["unit_price_paise"]} for r in rows]
         o["table"] = o.get("table_number") or 1
         o["table_number"] = o["table"]
+        o["at"] = o.get("created_at") or int(time.time() * 1000)
 
     conn.close()
     return orders
@@ -316,7 +318,7 @@ async def create_order(order: OrderCreate):
             "id": order_id,
             "table": order.table_number,
             "table_number": order.table_number,
-            "items": [it.model_dump() for it in order.items],
+            "items": [{"name": it.name, "item_name": it.name, "qty": it.qty, "price_paise": it.price_paise} for it in order.items],
             "customer_name": order.customer_name,
             "customer_phone": order.customer_phone,
             "note": order.note,

@@ -1530,6 +1530,62 @@
     }
     setTimeout(initWebSocket, 800);
 
+    // Live Auto-Sync Orders from Backend SQLite Database (Every 2s & on demand)
+    function syncOrdersFromBackend() {
+      var apiEndpoint = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000/api/orders' : '/api/orders';
+      fetch(apiEndpoint)
+        .then(function (res) { return res.json(); })
+        .then(function (backendOrders) {
+          if (!Array.isArray(backendOrders)) return;
+          var hasChanges = false;
+          backendOrders.forEach(function (bo) {
+            var tNum = bo.table || bo.table_number || 1;
+            bo.table = tNum;
+            bo.table_number = tNum;
+            bo.at = bo.at || bo.created_at || Date.now();
+            if (Array.isArray(bo.items)) {
+              bo.items = bo.items.map(function (it) {
+                var itemName = it.name || it.item_name || 'Item';
+                var priceRupees = it.price ? it.price : (it.price_paise ? it.price_paise / 100 : (it.unit_price_paise ? it.unit_price_paise / 100 : pr(itemName)));
+                return {
+                  name: itemName,
+                  item_name: itemName,
+                  qty: it.qty || 1,
+                  price: priceRupees
+                };
+              });
+            }
+
+            var localIdx = O.findIndex(function (x) { return x.id === bo.id; });
+            if (localIdx === -1) {
+              // New order placed from mobile phone!
+              O.unshift(bo);
+              hasChanges = true;
+              playSound('order');
+              toast('Naya Order: Table ' + tNum + ' (Mobile se aaya)');
+            } else {
+              if (O[localIdx].status !== bo.status) {
+                O[localIdx].status = bo.status;
+                hasChanges = true;
+              }
+              if (bo.paid_method && !O[localIdx].paid) {
+                O[localIdx].paid = bo.paid_method;
+                O[localIdx].paidAt = bo.paid_at;
+                hasChanges = true;
+              }
+            }
+          });
+
+          if (hasChanges) {
+            persist();
+            paint();
+          }
+        })
+        .catch(function () { });
+    }
+    syncOrdersFromBackend();
+    setInterval(syncOrdersFromBackend, 2000);
+
     // Fetch dynamic online cloud URL from backend
     function fetchOnlineUrl() {
       var apiEndpoint = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000/api/online-url' : '/api/online-url';
@@ -2138,7 +2194,7 @@
 
         d.innerHTML = '<div class="top"><span class="big">Table ' + getTableNum(o) + ' · ' + fmt(sub) + '</span><span class="m">' + (SL[o.status] || o.status) + '</span></div>' +
           (o.customer_name ? '<p class="m"><b>Customer:</b> ' + esc(o.customer_name) + (o.customer_phone ? ' (' + esc(o.customer_phone) + ')' : '') + '</p>' : '') +
-          '<ul>' + o.items.map(function (i) { return '<li>' + i.qty + ' × ' + esc(i.name) + '</li>' }).join('') + '</ul>' +
+          '<ul>' + o.items.map(function (i) { return '<li>' + i.qty + ' × ' + esc(i.name || i.item_name || 'Item') + '</li>' }).join('') + '</ul>' +
           (o.note ? '<p class="m">Note: ' + esc(o.note) + '</p>' : '');
 
         var cBox = document.createElement('div');
@@ -2328,7 +2384,7 @@
           d.className = 'tk c' + n + (late ? ' late' : '');
           d.innerHTML = '<div class="top"><span class="big">Table ' + tn + '</span><span class="m">' + ago(o.at) + '</span></div>' +
             (o.customer_name ? '<p class="m"><b>Customer:</b> ' + esc(o.customer_name) + '</p>' : '') +
-            '<ul>' + o.items.map(function (i) { return '<li>' + i.qty + ' × ' + esc(i.name) + '</li>' }).join('') + '</ul>' +
+            '<ul>' + o.items.map(function (i) { return '<li>' + i.qty + ' × ' + esc(i.name || i.item_name || 'Item') + '</li>' }).join('') + '</ul>' +
             (o.note ? '<p class="m">Note: ' + esc(o.note) + '</p>' : '');
 
           var act = document.createElement('div');
