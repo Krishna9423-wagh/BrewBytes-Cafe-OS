@@ -655,6 +655,24 @@
       flex-wrap: wrap
     }
 
+    /* STRICT PHONE-ONLY MODE: ONLY WAITER ORDERING ALLOWED ON PHONE */
+    body.phone-mode header nav,
+    body.phone-mode #roleBtn,
+    body.phone-mode #headerQrBtn,
+    body.phone-mode #sndBtn,
+    body.phone-mode #thmBtn {
+      display: none !important;
+    }
+    body.phone-mode #o,
+    body.phone-mode #k,
+    body.phone-mode #b,
+    body.phone-mode #r {
+      display: none !important;
+    }
+    body.phone-mode #w {
+      display: block !important;
+    }
+
     /* MODAL & RECEIPT PRINT STYLES */
     #receipt-overlay,
     #role-modal,
@@ -1285,7 +1303,7 @@
     var ownerPin = '1234';
     var viewingDayOffset = 0;
     var LOCAL_WIFI_URL = 'http://172.20.10.6:8000';
-    var activeOnlineUrl = 'https://407a99b77f9745.app.lhr.life';
+    var activeOnlineUrl = 'https://e2599e9804146a.app.lhr.life';
     var currentUrlMode = localStorage.getItem('bnb_url_mode') || 'online';
     var currentQrUrl = (currentUrlMode === 'wifi') ? LOCAL_WIFI_URL : activeOnlineUrl;
     var pendingRoleRequest = null;
@@ -1294,15 +1312,19 @@
     // Check if running on Phone or scanned via Waiter QR
     function checkPhoneOrWaiterMode() {
       var urlParams = new URLSearchParams(window.location.search);
-      // Only lock to Phone Mode if explicitly opened via Waiter QR (?role=waiter)
-      if (urlParams.get('role') === 'waiter') {
+      var isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      // Strictly lock to Waiter mode if opened via Waiter QR (?role=waiter) OR if opened on Mobile Phone
+      if (urlParams.get('role') === 'waiter' || isMobileDevice) {
         isPhoneMode = true;
         activeRole = 'waiter';
-        localStorage.setItem('bnb_active_role', 'waiter');
+        document.body.classList.add('phone-mode');
+        location.hash = '#waiter';
       } else {
         isPhoneMode = false;
         var saved = localStorage.getItem('bnb_active_role');
         activeRole = (saved && saved !== 'waiter') ? saved : 'owner';
+        document.body.classList.remove('phone-mode');
       }
     }
     checkPhoneOrWaiterMode();
@@ -1410,7 +1432,10 @@
           if (Array.isArray(d.menu) && d.menu.length) menu = d.menu;
           if (d.tableCount) tableCount = d.tableCount;
           if (Array.isArray(d.stockMovements)) stockMovements = d.stockMovements;
-          if (d.currentQrUrl) currentQrUrl = d.currentQrUrl;
+          // Never restore expired rotated tunnel domains from cache
+          if (d.currentQrUrl && !d.currentQrUrl.includes('lhr.life') && !d.currentQrUrl.includes('lhr.run')) {
+            currentQrUrl = d.currentQrUrl;
+          }
           if (d.ownerPin) ownerPin = d.ownerPin;
         }
       } catch (e) { }
@@ -1507,7 +1532,8 @@
 
     // Fetch dynamic online cloud URL from backend
     function fetchOnlineUrl() {
-      fetch('/api/online-url')
+      var apiEndpoint = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000/api/online-url' : '/api/online-url';
+      fetch(apiEndpoint)
         .then(function (res) { return res.json() })
         .then(function (d) {
           if (d && d.active && d.online_url) {
@@ -1517,7 +1543,7 @@
               renderQrCodes(currentQrUrl);
             }
             var op = $('onlinePill');
-            if (op) op.textContent = '🌐 Online Cloud Active';
+            if (op) op.textContent = '🌐 Online Cloud Active: ' + d.online_url;
           }
         })
         .catch(function () { });
@@ -1638,6 +1664,7 @@
 
     window.openQrModal = function () {
       $('qr-modal').style.display = 'flex';
+      fetchOnlineUrl();
       renderQrCodes(currentQrUrl);
     };
     window.closeQrModal = function () {
@@ -2742,6 +2769,7 @@
       var h = location.hash.slice(1);
       if (isPhoneMode) {
         h = 'waiter';
+        if (location.hash !== '#waiter') location.hash = '#waiter';
       } else if (h != 'waiter' && h != 'kitchen' && h != 'cashier' && h != 'report') {
         h = 'owner';
       }
@@ -2759,15 +2787,20 @@
 
     // Initial bootstrap
     var savedRole = localStorage.getItem('bnb_active_role');
-    if (savedRole && ROLE_CONFIG[savedRole] && !isPhoneMode && savedRole !== 'waiter') activeRole = savedRole;
-    else if (!isPhoneMode) activeRole = 'owner';
+    if (isPhoneMode) {
+      activeRole = 'waiter';
+      location.hash = '#waiter';
+    } else {
+      if (savedRole && ROLE_CONFIG[savedRole] && savedRole !== 'waiter') activeRole = savedRole;
+      else activeRole = 'owner';
+      if (!location.hash || location.hash === '#waiter') location.hash = '#owner';
+    }
     initTheme();
     loadPersisted();
     buildTables();
     buildMenu();
     applyRolePermissions();
     renderQrCodes(currentQrUrl);
-    if (!location.hash || (!isPhoneMode && location.hash === '#waiter')) location.hash = '#owner';
     show();
     upd();
     paint();
