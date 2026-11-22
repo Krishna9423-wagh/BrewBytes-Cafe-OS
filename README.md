@@ -2,6 +2,7 @@
 ### *The Next-Gen, Zero-Subscription Restaurant & Cafe Operating System*
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-Modern_Async_Backend-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-brewsbytescafeos.vercel.app-success?style=for-the-badge&logo=vercel)](https://brewsbytescafeos.vercel.app/#owner)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Real--Time_Live_Sync-blue?style=for-the-badge&logo=socketdotio)](https://developer.mozilla.org)
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python)](https://python.org)
 [![SQLite](https://img.shields.io/badge/Database-SQLite_Strict_Schema-003B57?style=for-the-badge&logo=sqlite)](https://sqlite.org)
@@ -9,6 +10,22 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 > **"All-in-One Cafe & Restaurant OS: QR Mobile Waiter Ordering, Live Kitchen Display (KDS), Thermal Billing with GST, Auto-Inventory Ledger & Owner Profit Dashboard. Zero Monthly Fee. Available for Licensing & Custom Deployment."**
+
+---
+
+## 🌐 Live Interactive Demo (Try in Your Browser Now)
+
+Test all live features of BrewBytes CafeOS right now without installing anything:
+
+👉 **[Launch Live Demo (brewsbytescafeos.vercel.app)](https://brewsbytescafeos.vercel.app/#owner)**
+
+| Screen / Role | Direct Interactive Demo Link |
+| :--- | :--- |
+| 👑 **Owner & Analytics Hub** | [brewsbytescafeos.vercel.app/#owner](https://brewsbytescafeos.vercel.app/#owner) |
+| 📱 **Mobile Waiter Ordering** | [brewsbytescafeos.vercel.app/#waiter](https://brewsbytescafeos.vercel.app/#waiter) |
+| 🍳 **Kitchen Display (KDS)** | [brewsbytescafeos.vercel.app/#kitchen](https://brewsbytescafeos.vercel.app/#kitchen) |
+| 🧾 **Cashier Billing Desk** | [brewsbytescafeos.vercel.app/#cashier](https://brewsbytescafeos.vercel.app/#cashier) |
+| 📊 **Monthly P&L Report** | [brewsbytescafeos.vercel.app/#report](https://brewsbytescafeos.vercel.app/#report) |
 
 ---
 
@@ -135,6 +152,7 @@ Are you a cafe owner, restaurant chain, food truck, or bakery looking for a comp
 | 📱 **Phone / Direct Call** | **`+91 7840946414`** |
 | 💬 **WhatsApp** | [**Click here to Chat on WhatsApp**](https://api.whatsapp.com/send/?phone=917840946414&text=Hi%20Krishna,%20I%20am%20interested%20in%20CafeOS%20Pro%20for%20my%20cafe/restaurant.&type=phone_number&app_absent=0) |
 | 📧 **Email** | [**waghk833@gmail.com**](mailto:waghk833@gmail.com) |
+| 🌐 **Live Web Demo** | [**brewsbytescafeos.vercel.app/#owner**](https://brewsbytescafeos.vercel.app/#owner) |
 | 🌐 **GitHub Repository** | [github.com/Krishna9423-wagh/BrewBytes-Cafe-OS](https://github.com/Krishna9423-wagh/BrewBytes-Cafe-OS) |
 | 📍 **Location** | India 🇮🇳 |
 
