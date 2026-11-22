@@ -1294,13 +1294,15 @@
     // Check if running on Phone or scanned via Waiter QR
     function checkPhoneOrWaiterMode() {
       var urlParams = new URLSearchParams(window.location.search);
-      var hash = window.location.hash;
-      var isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-      if (urlParams.get('role') === 'waiter' || hash === '#waiter' || (isMobileDevice && localStorage.getItem('bnb_active_role') !== 'owner')) {
+      // Only lock to Phone Mode if explicitly opened via Waiter QR (?role=waiter)
+      if (urlParams.get('role') === 'waiter') {
         isPhoneMode = true;
         activeRole = 'waiter';
         localStorage.setItem('bnb_active_role', 'waiter');
+      } else {
+        isPhoneMode = false;
+        var saved = localStorage.getItem('bnb_active_role');
+        activeRole = (saved && saved !== 'waiter') ? saved : 'owner';
       }
     }
     checkPhoneOrWaiterMode();
@@ -1738,36 +1740,27 @@
       $('roleText').textContent = cfg.name;
       $('roleIcon').textContent = cfg.icon;
 
-      // On Phone Mode: strictly HIDE non-waiter tabs and QR button
-      if (isPhoneMode || activeRole === 'waiter') {
+      // On Phone Mode (scanned via QR ?role=waiter): HIDE non-waiter tabs
+      if (isPhoneMode) {
         $('no').style.display = 'none';
         $('nk').style.display = 'none';
         $('nc').style.display = 'none';
         $('nr').style.display = 'none';
         $('nw').style.display = 'inline-block';
         $('headerQrBtn').style.display = 'none';
-        $('roleBtn').style.display = 'none'; // Lock switcher on phone
+        $('roleBtn').style.display = 'none';
         location.hash = '#waiter';
         return;
       }
 
-      // Desktop / Owner Mode: Show permitted tabs
+      // Desktop / Counter Mode: Show all main tabs
       $('headerQrBtn').style.display = 'inline-flex';
       $('roleBtn').style.display = 'inline-flex';
-      $('no').style.display = cfg.tabs.includes('o') ? 'inline-block' : 'none';
-      $('nw').style.display = cfg.tabs.includes('w') ? 'inline-block' : 'none';
-      $('nk').style.display = cfg.tabs.includes('k') ? 'inline-block' : 'none';
-      $('nc').style.display = cfg.tabs.includes('b') ? 'inline-block' : 'none';
-      $('nr').style.display = cfg.tabs.includes('r') ? 'inline-block' : 'none';
-
-      var curHash = location.hash.slice(1);
-      var hashToTab = { owner: 'o', waiter: 'w', kitchen: 'k', cashier: 'b', report: 'r' };
-      var curTabCode = hashToTab[curHash] || 'o';
-
-      if (!cfg.tabs.includes(curTabCode)) {
-        var tabToHash = { o: 'owner', w: 'waiter', k: 'kitchen', b: 'cashier', r: 'report' };
-        location.hash = '#' + tabToHash[cfg.defaultTab];
-      }
+      $('no').style.display = 'inline-block';
+      $('nw').style.display = 'inline-block';
+      $('nk').style.display = 'inline-block';
+      $('nc').style.display = 'inline-block';
+      $('nr').style.display = 'inline-block';
     }
 
     // Setup Theme & Sound Controls
@@ -2747,7 +2740,7 @@
     // Tab Switching
     function show() {
       var h = location.hash.slice(1);
-      if (isPhoneMode || activeRole === 'waiter') {
+      if (isPhoneMode) {
         h = 'waiter';
       } else if (h != 'waiter' && h != 'kitchen' && h != 'cashier' && h != 'report') {
         h = 'owner';
@@ -2766,14 +2759,15 @@
 
     // Initial bootstrap
     var savedRole = localStorage.getItem('bnb_active_role');
-    if (savedRole && ROLE_CONFIG[savedRole] && !isPhoneMode) activeRole = savedRole;
+    if (savedRole && ROLE_CONFIG[savedRole] && !isPhoneMode && savedRole !== 'waiter') activeRole = savedRole;
+    else if (!isPhoneMode) activeRole = 'owner';
     initTheme();
     loadPersisted();
     buildTables();
     buildMenu();
     applyRolePermissions();
     renderQrCodes(currentQrUrl);
-    if (!location.hash) location.hash = isPhoneMode ? '#waiter' : '#owner';
+    if (!location.hash || (!isPhoneMode && location.hash === '#waiter')) location.hash = '#owner';
     show();
     upd();
     paint();
