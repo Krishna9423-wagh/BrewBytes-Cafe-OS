@@ -67,3 +67,15 @@ class AttendanceRecord(BaseModel):
 class RestockRequest(BaseModel):
     note: Optional[str] = "Manual Restock"
 
+class ReviewDispatchedCreate(BaseModel):
+    order_id: str
+    customer_name: Optional[str] = ""
+    customer_phone: str
+    message: str
+    items_summary: Optional[str] = ""
+
+class ReviewTestRequest(BaseModel):
+    customer_name: Optional[str] = "Rahul"
+    customer_phone: str = "9876543210"
+    items: Optional[List[str]] = ["Cappuccino", "Cheese Sandwich"]
+

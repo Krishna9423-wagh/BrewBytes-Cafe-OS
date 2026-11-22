@@ -123,6 +123,22 @@ def init_db():
     )
     """)
 
+    # AI Customer Food Reviews table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS customer_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id TEXT NOT NULL,
+        customer_name TEXT,
+        customer_phone TEXT NOT NULL,
+        items_summary TEXT,
+        ai_message TEXT NOT NULL,
+        scheduled_at INTEGER NOT NULL,
+        dispatched_at INTEGER,
+        status TEXT NOT NULL DEFAULT 'scheduled', -- 'scheduled', 'dispatched', 'failed'
+        created_at INTEGER NOT NULL
+    )
+    """)
+
     # Seed default menu if empty
     cursor.execute("SELECT COUNT(*) FROM menu_items")
     if cursor.fetchone()[0] == 0:

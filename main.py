@@ -1,7 +1,8 @@
 import time
 import json
 import os
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
+import asyncio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from typing import List, Optional
@@ -16,8 +17,51 @@ from schemas import (
     MenuItemCreate, MenuItemUpdate,
     OrderCreate, OrderPay,
     ExpenseCreate, VendorCreate,
-    StaffCreate, AttendanceRecord, RestockRequest
+    StaffCreate, AttendanceRecord, RestockRequest,
+    ReviewDispatchedCreate, ReviewTestRequest
 )
+
+# --- AI FOOD REVIEW AGENT UTILITIES ---
+def generate_ai_review_text(customer_name: str, items_summary: str, google_review_url: str = "") -> str:
+    name_prefix = f"Namaste {customer_name} ji! 🙏" if customer_name else "Namaste! 🙏"
+    dish_part = f"fresh *{items_summary}*" if items_summary else "khana aur drinks"
+    g_link = google_review_url if google_review_url else "https://maps.google.com"
+    return (
+        f"{name_prefix}\n\n"
+        f"Brew & Bytes Cafe me aane ke liye dil se shukriya! ☕✨\n\n"
+        f"Aapko hamara {dish_part} kaisa laga? Hamare chef ne ise special pyaar se banaya tha.\n\n"
+        f"⭐ *Aapka feedback hamare liye bahut keemti hai!*\n"
+        f"Kripya 10 second nikal kar hume apna pyara review ya 5-star rating dein:\n"
+        f"{g_link}\n\n"
+        f"🎁 *Special Gift:* Agli visit par ye message dikhayein aur payein *flat 10% discount* on total bill!\n"
+        f"— Team Brew & Bytes ☕"
+    )
+
+async def schedule_ai_review(order_id: str, customer_name: str, customer_phone: str, items_summary: str, delay_seconds: int = 300):
+    await asyncio.sleep(delay_seconds)
+    now = int(time.time() * 1000)
+    ai_msg = generate_ai_review_text(customer_name, items_summary)
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO customer_reviews (order_id, customer_name, customer_phone, items_summary, ai_message, scheduled_at, dispatched_at, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'dispatched', ?)
+        """, (order_id, customer_name, customer_phone, items_summary, ai_msg, now - (delay_seconds * 1000), now, now))
+        conn.commit()
+        conn.close()
+
+        # Broadcast review dispatch over WebSocket
+        await manager.broadcast({
+            "event": "review_dispatched",
+            "order_id": order_id,
+            "customer_name": customer_name,
+            "customer_phone": customer_phone,
+            "message": ai_msg,
+            "dispatched_at": now
+        })
+    except Exception as e:
+        print(f"Error recording dispatched review for order {order_id}: {e}")
 
 # Initialize Database tables
 init_db()
@@ -294,6 +338,29 @@ async def update_order_status(order_id: str, status: str):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
+    
+    # If order is served, check if customer phone exists to trigger 5-min AI review
+    if status == 'served':
+        cursor.execute("SELECT customer_name, customer_phone, table_number FROM orders WHERE id = ?", (order_id,))
+        ord_row = cursor.fetchone()
+        if ord_row and ord_row["customer_phone"]:
+            cname = ord_row["customer_name"] or ""
+            cphone = ord_row["customer_phone"]
+            cursor.execute("SELECT item_name FROM order_items WHERE order_id = ?", (order_id,))
+            item_rows = cursor.fetchall()
+            items_summary = ", ".join([r["item_name"] for r in item_rows]) if item_rows else "food & drinks"
+            
+            # Start background review task (5 minutes = 300 seconds)
+            asyncio.create_task(schedule_ai_review(order_id, cname, cphone, items_summary, delay_seconds=300))
+            await manager.broadcast({
+                "event": "review_scheduled",
+                "order_id": order_id,
+                "customer_name": cname,
+                "customer_phone": cphone,
+                "items_summary": items_summary,
+                "delay_seconds": 300
+            })
+
     conn.commit()
     conn.close()
 
@@ -439,6 +506,87 @@ def record_attendance(rec: AttendanceRecord):
     conn.commit()
     conn.close()
     return {"staff_id": rec.staff_id, "date_str": rec.date_str, "is_present": rec.is_present}
+
+# --- AI CUSTOMER FOOD REVIEW AGENT ENDPOINTS ---
+@app.get("/api/reviews")
+def get_customer_reviews(limit: int = 50):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM customer_reviews ORDER BY created_at DESC LIMIT ?", (limit,))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return rows
+
+@app.post("/api/reviews/dispatched")
+async def record_dispatched_review(payload: ReviewDispatchedCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    now = int(time.time() * 1000)
+    cursor.execute("""
+        INSERT INTO customer_reviews (order_id, customer_name, customer_phone, items_summary, ai_message, scheduled_at, dispatched_at, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'dispatched', ?)
+    """, (payload.order_id, payload.customer_name, payload.customer_phone, payload.items_summary, payload.message, now, now, now))
+    conn.commit()
+    conn.close()
+    
+    await manager.broadcast({
+        "event": "review_dispatched",
+        "order_id": payload.order_id,
+        "customer_name": payload.customer_name,
+        "customer_phone": payload.customer_phone,
+        "message": payload.message,
+        "dispatched_at": now
+    })
+    return {"status": "success", "recorded_at": now}
+
+@app.post("/api/reviews/test")
+def test_ai_review(req: ReviewTestRequest):
+    summary = ", ".join(req.items) if req.items else "Cappuccino, Sandwich"
+    msg = generate_ai_review_text(req.customer_name, summary)
+    return {
+        "customer_name": req.customer_name,
+        "customer_phone": req.customer_phone,
+        "generated_message": msg
+    }
+
+@app.post("/api/reviews/trigger/{order_id}")
+async def trigger_instant_review(order_id: str):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT customer_name, customer_phone, table_number FROM orders WHERE id = ?", (order_id,))
+    ord_row = cursor.fetchone()
+    if not ord_row or not ord_row["customer_phone"]:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Order not found or no customer phone number attached")
+
+    cname = ord_row["customer_name"] or ""
+    cphone = ord_row["customer_phone"]
+    cursor.execute("SELECT item_name FROM order_items WHERE order_id = ?", (order_id,))
+    item_rows = cursor.fetchall()
+    items_summary = ", ".join([r["item_name"] for r in item_rows]) if item_rows else "food & drinks"
+    conn.close()
+
+    now = int(time.time() * 1000)
+    ai_msg = generate_ai_review_text(cname, items_summary)
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO customer_reviews (order_id, customer_name, customer_phone, items_summary, ai_message, scheduled_at, dispatched_at, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'dispatched', ?)
+    """, (order_id, cname, cphone, items_summary, ai_msg, now, now, now))
+    conn.commit()
+    conn.close()
+
+    await manager.broadcast({
+        "event": "review_dispatched",
+        "order_id": order_id,
+        "customer_name": cname,
+        "customer_phone": cphone,
+        "message": ai_msg,
+        "dispatched_at": now
+    })
+    return {"status": "success", "order_id": order_id, "dispatched_message": ai_msg}
 
 if __name__ == "__main__":
     import uvicorn
