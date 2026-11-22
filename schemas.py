@@ -32,6 +32,7 @@ class OrderItemInput(BaseModel):
     price_paise: int
 
 class OrderCreate(BaseModel):
+    id: Optional[str] = None
     table_number: int
     customer_name: Optional[str] = ""
     customer_phone: Optional[str] = ""

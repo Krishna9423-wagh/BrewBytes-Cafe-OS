@@ -1501,22 +1501,27 @@
                 paint();
               }
             } else if (data.event === 'status_change') {
-              var target = O.find(function (x) { return x.id === data.order_id });
+              var target = O.find(function (x) { return x.id === data.order_id || (data.table && getTableNum(x) == data.table && x.status !== 'served') });
               if (target) {
                 target.status = data.status;
                 persist();
                 if (data.status === 'ready') playSound('ready');
                 paint();
+                updateTableBadges();
               }
+              syncOrdersFromBackend();
             } else if (data.event === 'order_paid') {
-              var target = O.find(function (x) { return x.id === data.order_id });
+              var target = O.find(function (x) { return x.id === data.order_id || (data.table && getTableNum(x) == data.table) });
               if (target) {
                 target.paid = data.paid_method;
+                target.status = data.status || 'served';
                 target.paidAt = Date.now();
                 if (data.total_paise) target.total_paise = data.total_paise;
                 persist();
                 paint();
+                updateTableBadges();
               }
+              syncOrdersFromBackend();
             }
           } catch (err) { }
         };
@@ -1543,6 +1548,7 @@
             bo.table = tNum;
             bo.table_number = tNum;
             bo.at = bo.at || bo.created_at || Date.now();
+            bo.paid = bo.paid || bo.paid_method || null;
             if (Array.isArray(bo.items)) {
               bo.items = bo.items.map(function (it) {
                 var itemName = it.name || it.item_name || 'Item';
@@ -1556,21 +1562,18 @@
               });
             }
 
-            var localIdx = O.findIndex(function (x) { return x.id === bo.id; });
+            var localIdx = O.findIndex(function (x) { return x.id === bo.id || (bo.table && getTableNum(x) == bo.table && !x.paid && !bo.paid); });
             if (localIdx === -1) {
-              // New order placed from mobile phone!
               O.unshift(bo);
               hasChanges = true;
-              playSound('order');
-              toast('Naya Order: Table ' + tNum + ' (Mobile se aaya)');
             } else {
               if (O[localIdx].status !== bo.status) {
                 O[localIdx].status = bo.status;
                 hasChanges = true;
               }
-              if (bo.paid_method && !O[localIdx].paid) {
-                O[localIdx].paid = bo.paid_method;
-                O[localIdx].paidAt = bo.paid_at;
+              if (bo.paid && O[localIdx].paid !== bo.paid) {
+                O[localIdx].paid = bo.paid;
+                O[localIdx].paidAt = bo.paid_at || Date.now();
                 hasChanges = true;
               }
             }
@@ -1579,6 +1582,7 @@
           if (hasChanges) {
             persist();
             paint();
+            updateTableBadges();
           }
         })
         .catch(function () { });
@@ -2121,10 +2125,12 @@
       toast('Table ' + curTable + ' ka order kitchen bhej diya gaya!');
 
       try {
-        fetch('/api/orders', {
+        var apiEndpoint = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000/api/orders' : '/api/orders';
+        fetch(apiEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            id: o.id,
             table_number: o.table,
             customer_name: o.customer_name,
             customer_phone: o.customer_phone,
@@ -2145,15 +2151,17 @@
       Object.assign(o, patch);
       persist();
       paint();
+      updateTableBadges();
 
+      var apiBase = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000' : '';
       if (patch.status) {
         try {
-          fetch('/api/orders/' + o.id + '/status?status=' + patch.status, { method: 'PATCH' }).catch(function () { });
+          fetch(apiBase + '/api/orders/' + o.id + '/status?status=' + patch.status, { method: 'PATCH' }).catch(function () { });
         } catch (e) { }
       }
       if (patch.paid) {
         try {
-          fetch('/api/orders/' + o.id + '/pay', {
+          fetch(apiBase + '/api/orders/' + o.id + '/pay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2253,6 +2261,7 @@
             var patch = {
               paid: m,
               paidAt: Date.now(),
+              status: 'served',
               subtotal_paise: toPaise(sub),
               discount_paise: toPaise(res.disc),
               gst_paise: toPaise(res.gst),
@@ -2260,7 +2269,8 @@
               total: res.finalAmt
             };
             save(o, patch);
-            toast('Table ' + getTableNum(o) + ' ka bill ' + m + ' se chukta hua');
+            updateTableBadges();
+            toast('Table ' + getTableNum(o) + ' ka bill ' + m + ' se chukta hua. Table Free!');
             openReceipt(o);
           };
           act.appendChild(b);

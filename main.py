@@ -270,6 +270,7 @@ def get_orders(status: Optional[str] = None):
         o["table"] = o.get("table_number") or 1
         o["table_number"] = o["table"]
         o["at"] = o.get("created_at") or int(time.time() * 1000)
+        o["paid"] = o.get("paid_method")
 
     conn.close()
     return orders
@@ -279,7 +280,7 @@ async def create_order(order: OrderCreate):
     conn = get_db()
     cursor = conn.cursor()
 
-    order_id = f"l{int(time.time() * 1000)}"
+    order_id = order.id if order.id else f"l{int(time.time() * 1000)}"
     now = int(time.time() * 1000)
 
     subtotal_paise = sum(it.qty * it.price_paise for it in order.items)
@@ -341,33 +342,35 @@ async def update_order_status(order_id: str, status: str):
     cursor = conn.cursor()
     cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
     
+    cursor.execute("SELECT table_number, customer_name, customer_phone FROM orders WHERE id = ?", (order_id,))
+    ord_row = cursor.fetchone()
+    table_num = ord_row["table_number"] if ord_row else 1
+
     # If order is served, check if customer phone exists to trigger 5-min AI review
-    if status == 'served':
-        cursor.execute("SELECT customer_name, customer_phone, table_number FROM orders WHERE id = ?", (order_id,))
-        ord_row = cursor.fetchone()
-        if ord_row and ord_row["customer_phone"]:
-            cname = ord_row["customer_name"] or ""
-            cphone = ord_row["customer_phone"]
-            cursor.execute("SELECT item_name FROM order_items WHERE order_id = ?", (order_id,))
-            item_rows = cursor.fetchall()
-            items_summary = ", ".join([r["item_name"] for r in item_rows]) if item_rows else "food & drinks"
-            
-            # Start background review task (5 minutes = 300 seconds)
-            asyncio.create_task(schedule_ai_review(order_id, cname, cphone, items_summary, delay_seconds=300))
-            await manager.broadcast({
-                "event": "review_scheduled",
-                "order_id": order_id,
-                "customer_name": cname,
-                "customer_phone": cphone,
-                "items_summary": items_summary,
-                "delay_seconds": 300
-            })
+    if status == 'served' and ord_row and ord_row["customer_phone"]:
+        cname = ord_row["customer_name"] or ""
+        cphone = ord_row["customer_phone"]
+        cursor.execute("SELECT item_name FROM order_items WHERE order_id = ?", (order_id,))
+        item_rows = cursor.fetchall()
+        items_summary = ", ".join([r["item_name"] for r in item_rows]) if item_rows else "food & drinks"
+        
+        # Start background review task (5 minutes = 300 seconds)
+        asyncio.create_task(schedule_ai_review(order_id, cname, cphone, items_summary, delay_seconds=300))
+        await manager.broadcast({
+            "event": "review_scheduled",
+            "order_id": order_id,
+            "table": table_num,
+            "customer_name": cname,
+            "customer_phone": cphone,
+            "items_summary": items_summary,
+            "delay_seconds": 300
+        })
 
     conn.commit()
     conn.close()
 
-    await manager.broadcast({"event": "status_change", "order_id": order_id, "status": status})
-    return {"order_id": order_id, "status": status}
+    await manager.broadcast({"event": "status_change", "order_id": order_id, "table": table_num, "status": status})
+    return {"order_id": order_id, "table": table_num, "status": status}
 
 @app.post("/api/orders/{order_id}/pay")
 async def pay_order(order_id: str, pay_data: OrderPay):
@@ -377,14 +380,26 @@ async def pay_order(order_id: str, pay_data: OrderPay):
 
     cursor.execute("""
     UPDATE orders
-    SET paid_method = ?, paid_at = ?, discount_paise = ?, gst_paise = ?, total_paise = ?
+    SET paid_method = ?, paid_at = ?, discount_paise = ?, gst_paise = ?, total_paise = ?, status = 'served'
     WHERE id = ?
     """, (pay_data.paid_method, now, pay_data.discount_paise, pay_data.gst_paise, pay_data.total_paise, order_id))
+    
+    cursor.execute("SELECT table_number FROM orders WHERE id = ?", (order_id,))
+    t_row = cursor.fetchone()
+    table_num = t_row["table_number"] if t_row else 1
+    
     conn.commit()
     conn.close()
 
-    await manager.broadcast({"event": "order_paid", "order_id": order_id, "paid_method": pay_data.paid_method, "total_paise": pay_data.total_paise})
-    return {"order_id": order_id, "paid": True, "total_paise": pay_data.total_paise}
+    await manager.broadcast({
+        "event": "order_paid",
+        "order_id": order_id,
+        "table": table_num,
+        "status": "served",
+        "paid_method": pay_data.paid_method,
+        "total_paise": pay_data.total_paise
+    })
+    return {"order_id": order_id, "table": table_num, "status": "served", "paid": True, "total_paise": pay_data.total_paise}
 
 # --- STOCK MOVEMENTS LEDGER ---
 @app.get("/api/stock/movements")
