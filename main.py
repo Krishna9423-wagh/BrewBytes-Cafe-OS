@@ -106,6 +106,15 @@ def serve_frontend(v: Optional[str] = None):
         )
     return {"message": "Brew & Bytes API is running. Frontend file not found at path."}
 
+# /waiter — Dedicated Waiter-only URL for QR codes
+# Phone always opens in Waiter mode when this URL is scanned, no questions asked
+@app.get("/waiter")
+def waiter_redirect():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/?role=waiter", status_code=302, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+    })
+
 # Reset page: clears phone browser cache and localStorage, then redirects to app
 @app.get("/reset")
 def reset_page():

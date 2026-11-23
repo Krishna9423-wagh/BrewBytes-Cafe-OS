@@ -1348,14 +1348,21 @@
     // Check if running on Phone or scanned via Waiter QR
     function checkPhoneOrWaiterMode() {
       var urlParams = new URLSearchParams(window.location.search);
-      var isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      var isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || (navigator.maxTouchPoints > 1 && window.innerWidth < 900);
 
-      // Strictly lock to Waiter mode if opened via Waiter QR (?role=waiter) OR if opened on Mobile Phone
-      if (urlParams.get('role') === 'waiter' || isMobileDevice) {
+      // Force Waiter mode if:
+      // 1. Opened via /waiter URL (QR scan)
+      // 2. ?role=waiter param in URL
+      // 3. Mobile/touch device
+      var isWaiterUrl = (window.location.pathname === '/waiter' || urlParams.get('role') === 'waiter');
+
+      if (isWaiterUrl || isMobileDevice) {
         isPhoneMode = true;
         activeRole = 'waiter';
         document.body.classList.add('phone-mode');
-        location.hash = '#waiter';
+        // Lock the URL so it stays in waiter mode and can't be changed by back button
+        if (window.location.hash !== '#waiter') location.hash = '#waiter';
       } else {
         isPhoneMode = false;
         var saved = localStorage.getItem('bnb_active_role');
@@ -1795,8 +1802,9 @@
     // --- QR CODE GENERATION & PHONE DIRECT WAITER URL ---
     function getWaiterDirectUrl(baseUrl) {
       var u = (baseUrl || currentQrUrl).replace(/\/$/, '');
-      // Appends ?role=waiter#waiter so phones open ONLY Waiter screen!
-      return u + '/?role=waiter#waiter';
+      // /waiter is the dedicated waiter-only URL — always opens Waiter screen on phone!
+      // Backend redirects /waiter → /?role=waiter, so phone is locked to waiter mode.
+      return u + '/waiter';
     }
 
     function renderQrCodes(url) {
