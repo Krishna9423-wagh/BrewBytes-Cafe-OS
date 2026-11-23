@@ -11,6 +11,11 @@ echo "=========================================="
 echo "☕ BrewBytes CafeOS Starting..."
 echo "=========================================="
 
+# Clean up any lingering processes on port 8000 or old tunnels
+lsof -ti :8000 | xargs kill -9 2>/dev/null || true
+pkill -f "nokey@localhost.run" 2>/dev/null || true
+sleep 1
+
 python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
 SERVER_PID=$!
 

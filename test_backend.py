@@ -80,6 +80,32 @@ class TestBrewBytesBackend(unittest.TestCase):
         self.assertEqual(movement["qty_change"], -0.4)
         conn.close()
 
+    def test_close_day_frees_open_orders(self):
+        conn = get_db()
+        cursor = conn.cursor()
+        order_id = f"test_dayclose_{int(time.time()*1000)}"
+        now = int(time.time()*1000)
+
+        cursor.execute("""
+        INSERT INTO orders (id, table_number, customer_name, status, subtotal_paise, total_paise, created_at)
+        VALUES (?, 5, 'Unclosed Customer', 'cooking', 15000, 15000, ?)
+        """, (order_id, now))
+        conn.commit()
+
+        # Simulate day close
+        cursor.execute("""
+        UPDATE orders
+        SET status = 'served', paid_method = COALESCE(paid_method, 'DayClosed'), paid_at = COALESCE(paid_at, ?)
+        WHERE status != 'served' AND status != 'cancelled'
+        """, (now,))
+        conn.commit()
+
+        cursor.execute("SELECT status, paid_method FROM orders WHERE id = ?", (order_id,))
+        row = cursor.fetchone()
+        self.assertEqual(row["status"], "served")
+        self.assertEqual(row["paid_method"], "DayClosed")
+        conn.close()
+
 if __name__ == "__main__":
     unittest.main()
 

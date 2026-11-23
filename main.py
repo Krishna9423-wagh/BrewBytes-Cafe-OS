@@ -4,7 +4,7 @@ import os
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from typing import List, Optional
 
 from database import init_db, get_db
@@ -90,25 +90,109 @@ POSSIBLE_PATHS = [
 HTML_PATH = next((p for p in POSSIBLE_PATHS if os.path.exists(p)), POSSIBLE_PATHS[0])
 
 # Serve Frontend directly on cafe Wi-Fi network (Phone, Tablet, Laptop)
+# NO-CACHE: Phone must always get the latest code, never stale cached version
 @app.api_route("/", methods=["GET", "HEAD"])
-def serve_frontend():
+@app.api_route("/index.html", methods=["GET", "HEAD"])
+@app.api_route("/Brew & Bytes_ Waiter aur Kitchen.html", methods=["GET", "HEAD"])
+def serve_frontend(v: Optional[str] = None):
     if os.path.exists(HTML_PATH):
-        return FileResponse(HTML_PATH)
+        return FileResponse(
+            HTML_PATH,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return {"message": "Brew & Bytes API is running. Frontend file not found at path."}
 
-# Get Live Public Online URL (No Wi-Fi needed - works on 4G/5G mobile data)
+# Reset page: clears phone browser cache and localStorage, then redirects to app
+@app.get("/reset")
+def reset_page():
+    html = """<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brew & Bytes - Reset</title>
+<style>body{font-family:sans-serif;text-align:center;padding:40px;background:#f5f0eb}
+h2{color:#5c3d2e}.box{background:white;border-radius:16px;padding:24px;max-width:340px;margin:0 auto;box-shadow:0 2px 12px rgba(0,0,0,.1)}</style>
+</head>
+<body>
+<div class="box">
+<h2>☕ Brew & Bytes</h2>
+<p id="msg">Cache saaf ho raha hai...</p>
+<div id="steps" style="text-align:left;font-size:14px;color:#666;margin-top:16px"></div>
+</div>
+<script>
+var steps = document.getElementById('steps');
+function log(t){ steps.innerHTML += '<p>✅ '+t+'</p>'; }
+// Clear ALL localStorage keys related to this app
+var cleared = 0;
+['bnb_cafe_production_v2','bnb_cafe_production_v3','bnb_cafe_production_v1'].forEach(function(k){
+  if(localStorage.getItem(k)){ localStorage.removeItem(k); cleared++; log('Old data saaf: '+k); }
+});
+// Clear any other bnb keys
+Object.keys(localStorage).forEach(function(k){
+  if(k.indexOf('bnb_')===0){ localStorage.removeItem(k); cleared++; log('Saaf: '+k); }
+});
+if(cleared===0) log('Pehle se saaf tha');
+log('Done! App load ho rahi hai...');
+document.getElementById('msg').textContent = 'Cache saaf! App khul rahi hai...';
+setTimeout(function(){ window.location.href = '/?v=' + Date.now(); }, 1500);
+</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    })
+
+def detect_lan_ip():
+    try:
+        import subprocess, re
+        out = subprocess.check_output(['ifconfig'], text=True)
+        ips = re.findall(r'inet\s+([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)', out)
+        for ip in ips:
+            if not ip.startswith('127.'):
+                return ip
+    except Exception:
+        pass
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return '127.0.0.1'
+
+# Get Live Public Online URL (No Wi-Fi needed - works on 4G/5G mobile data) & Local Wi-Fi URL
 @app.get("/api/online-url")
 def get_online_url():
+    import re
     tunnel_file = os.path.join(os.path.dirname(__file__), "tunnel_url.txt")
+    online_url = None
     if os.path.exists(tunnel_file):
         try:
             with open(tunnel_file, "r") as f:
-                url = f.read().strip()
-                if url:
-                    return {"online_url": url, "active": True}
+                content = f.read()
+                # Strictly match clean https url
+                m = re.search(r'https://[a-zA-Z0-9.-]+\.lhr\.(life|run)', content)
+                if m:
+                    online_url = m.group(0)
+                elif content.strip().startswith("http"):
+                    online_url = content.strip().split()[0]
         except Exception:
             pass
-    return {"online_url": None, "active": False}
+    lan_ip = detect_lan_ip()
+    local_url = f"http://{lan_ip}:8000" if lan_ip != "127.0.0.1" else "http://localhost:8000"
+    return {
+        "online_url": online_url,
+        "active": bool(online_url),
+        "local_ip": lan_ip,
+        "local_url": local_url
+    }
 
 # WebSocket connection manager for live phone -> kitchen broadcast
 class ConnectionManager:
@@ -160,7 +244,9 @@ async def websocket_kitchen(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
@@ -254,13 +340,25 @@ def update_menu_item(item_id: int, item: MenuItemUpdate):
 
 # --- ORDERS ENDPOINTS ---
 @app.get("/api/orders")
-def get_orders(status: Optional[str] = None):
+def get_orders(status: Optional[str] = None, all: Optional[bool] = False):
     conn = get_db()
     cursor = conn.cursor()
+
+    # By default, return only today's orders (prevents stale data flooding phone)
+    # Use ?all=true for reports that need historical data
+    today_start_ms = int(time.mktime(time.strptime(time.strftime("%Y-%m-%d"), "%Y-%m-%d")) * 1000)
+
     if status:
         cursor.execute("SELECT * FROM orders WHERE status = ? ORDER BY created_at ASC", (status,))
-    else:
+    elif all:
         cursor.execute("SELECT * FROM orders ORDER BY created_at DESC")
+    else:
+        # Return: today's orders + any still-active orders from past days
+        cursor.execute("""
+        SELECT * FROM orders
+        WHERE created_at >= ? OR status NOT IN ('served', 'cancelled')
+        ORDER BY created_at DESC
+        """, (today_start_ms,))
     orders = [dict(r) for r in cursor.fetchall()]
 
     for o in orders:
@@ -400,6 +498,23 @@ async def pay_order(order_id: str, pay_data: OrderPay):
         "total_paise": pay_data.total_paise
     })
     return {"order_id": order_id, "table": table_num, "status": "served", "paid": True, "total_paise": pay_data.total_paise}
+
+@app.post("/api/day/close")
+async def close_day():
+    conn = get_db()
+    cursor = conn.cursor()
+    now = int(time.time() * 1000)
+    cursor.execute("""
+    UPDATE orders
+    SET status = 'served', paid_method = COALESCE(paid_method, 'DayClosed'), paid_at = COALESCE(paid_at, ?)
+    WHERE status != 'served' AND status != 'cancelled'
+    """, (now,))
+    closed_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+
+    await manager.broadcast({"event": "day_closed", "closed_count": closed_count})
+    return {"message": "Day closed successfully", "closed_orders": closed_count}
 
 # --- STOCK MOVEMENTS LEDGER ---
 @app.get("/api/stock/movements")
@@ -604,6 +719,26 @@ async def trigger_instant_review(order_id: str):
         "dispatched_at": now
     })
     return {"status": "success", "order_id": order_id, "dispatched_message": ai_msg}
+
+# --- CAFE CONFIG (table count, etc.) synced live across all devices ---
+# In-memory config (persists for the lifetime of the server process)
+_cafe_config = {"table_count": 12}
+
+@app.get("/api/config")
+def get_config():
+    return _cafe_config
+
+@app.post("/api/config")
+async def save_config(data: dict):
+    if "table_count" in data:
+        tc = int(data["table_count"])
+        if 4 <= tc <= 48:
+            _cafe_config["table_count"] = tc
+        else:
+            raise HTTPException(status_code=400, detail="table_count must be 4–48")
+    # Broadcast to ALL connected clients (phone, kitchen, cashier) so they update instantly
+    await manager.broadcast({"event": "config_update", "config": _cafe_config})
+    return _cafe_config
 
 if __name__ == "__main__":
     import uvicorn

@@ -7,6 +7,10 @@
     content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- Force no-cache on all browsers including mobile Safari -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Brew &amp; Bytes Cafe POS</title>
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=DM+Sans:wght@400;500;700&display=swap">
@@ -673,6 +677,35 @@
       display: block !important;
     }
 
+    /* CONNECTION STATUS BADGE */
+    .conn-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+    }
+    .conn-badge.online {
+      background: rgba(30, 123, 75, 0.15);
+      color: var(--ok);
+      border: 1px solid rgba(30, 123, 75, 0.3);
+    }
+    .conn-badge.offline {
+      background: rgba(220, 53, 69, 0.15);
+      color: #dc3545;
+      border: 1px solid rgba(220, 53, 69, 0.3);
+      animation: pulse-red 1.5s infinite;
+    }
+    @keyframes pulse-red {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
     /* MODAL & RECEIPT PRINT STYLES */
     #receipt-overlay,
     #role-modal,
@@ -1150,7 +1183,10 @@
     <!-- SECTION 2: WAITER SCREEN (MOBILE FRIENDLY - ANDROID & IPHONE) -->
     <section id="w" hidden>
       <div id="rd"></div>
-      <h2>Table chuno</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px">
+        <h2 style="margin:0">Table chuno</h2>
+        <span id="waiterConnStatus" class="conn-badge online" onclick="syncOrdersFromBackend();initWebSocket();toast('Checking Kitchen connection...');" title="Click to refresh connection">🟢 Kitchen Live</span>
+      </div>
       <div class="tables" id="tb"></div>
 
       <h2>Customer details (Optional)</h2>
@@ -1329,6 +1365,27 @@
     }
     checkPhoneOrWaiterMode();
 
+    // Dynamic Backend Host Resolution: Works on port 8000, VS Code Live Server (port 5500/3000), file://, Cafe Wi-Fi, and Cloud Tunnels!
+    function getApiBase() {
+      var loc = window.location;
+      if (loc.protocol === 'file:' || ((loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') && loc.port && loc.port !== '8000')) {
+        return 'http://127.0.0.1:8000';
+      }
+      return '';
+    }
+
+    function getWsUrl() {
+      var loc = window.location;
+      if (loc.protocol === 'file:' || ((loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') && loc.port && loc.port !== '8000')) {
+        return 'ws://127.0.0.1:8000/ws/kitchen';
+      }
+      var isHttps = loc.protocol === 'https:';
+      var proto = isHttps ? 'wss://' : 'ws://';
+      var wsHost = loc.hostname || '127.0.0.1';
+      var wsPort = loc.port ? (':' + loc.port) : '';
+      return proto + wsHost + wsPort + '/ws/kitchen';
+    }
+
     // Helper DOM & formatting functions
     function $(i) { return document.getElementById(i) }
     function fmt(n) { return (n < 0 ? '−' : '') + '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN') }
@@ -1393,7 +1450,10 @@
     }
 
     // Storage Management
-    var STORAGE_KEY = 'bnb_cafe_production_v2';
+    var STORAGE_KEY = 'bnb_cafe_production_v3';
+
+    // One-time migration: clear stale v2 data so old ghost orders don't show orange dots
+    try { localStorage.removeItem('bnb_cafe_production_v2'); } catch(e) {}
 
     function persist() {
       try {
@@ -1417,10 +1477,19 @@
         if (raw) {
           var d = JSON.parse(raw);
           if (Array.isArray(d.O)) {
+            var todayYmd = ymd();
             O = d.O.map(function (o) {
               var tNum = o.table || o.table_number || 1;
               o.table = tNum;
               o.table_number = tNum;
+              // Auto-archive abandoned unserved orders from past calendar days so they don't block tables
+              if (ymd(o.at) < todayYmd && o.status !== 'served' && o.status !== 'cancelled') {
+                o.status = 'served';
+                if (!o.paid) {
+                  o.paid = 'DayClosed';
+                  o.paidAt = o.paidAt || o.at;
+                }
+              }
               return o;
             });
           }
@@ -1464,27 +1533,43 @@
 
     // Setup Live WebSocket connection to Backend (Supports ws:// and wss://)
     var ws = null;
-    function initWebSocket() {
-      var loc = window.location;
-      var isHttps = loc.protocol === 'https:';
-      var proto = isHttps ? 'wss://' : 'ws://';
-      var wsHost = loc.hostname;
-      var wsPort = loc.port ? (':' + loc.port) : '';
+    var wsReconnectTimer = null;
 
-      if (loc.protocol === 'file:' || !wsHost) {
-        wsHost = '127.0.0.1';
-        wsPort = ':8000';
-        proto = 'ws://';
+    function updateConnBadge(isOnline) {
+      var connPill = $('waiterConnStatus');
+      if (connPill) {
+        if (isOnline) {
+          connPill.textContent = '🟢 Kitchen Live';
+          connPill.className = 'conn-badge online';
+        } else {
+          connPill.textContent = '🔴 Disconnected (Retry)';
+          connPill.className = 'conn-badge offline';
+        }
+      }
+    }
+
+    function initWebSocket() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+      if (wsReconnectTimer) {
+        clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = null;
       }
 
-      var wsUrl = proto + wsHost + wsPort + '/ws/kitchen';
+      var wsUrl = getWsUrl();
+      var isHttps = wsUrl.startsWith('wss:');
 
       try {
         ws = new WebSocket(wsUrl);
         ws.onopen = function () {
-          $('mode').textContent = isHttps ? '🌐 Online Cloud Live Connected' : '📶 Cafe Wi-Fi Live Connected';
+          var modeLabel = isHttps ? '🌐 Online Cloud Live Connected' : '📶 Cafe Wi-Fi Live Connected';
+          if ($('mode')) $('mode').textContent = modeLabel;
+          updateConnBadge(true);
+          syncOrdersFromBackend();
         };
         ws.onmessage = function (ev) {
+          if (ev.data === 'pong') return;
           try {
             var data = JSON.parse(ev.data);
             if (data.event === 'new_order') {
@@ -1499,9 +1584,10 @@
                 playSound('order');
                 toast('Naya Order: Table ' + tNum);
                 paint();
+                updateTableBadges();
               }
             } else if (data.event === 'status_change') {
-              var target = O.find(function (x) { return x.id === data.order_id || (data.table && getTableNum(x) == data.table && x.status !== 'served') });
+              var target = O.find(function (x) { return x.id === data.order_id });
               if (target) {
                 target.status = data.status;
                 persist();
@@ -1511,7 +1597,7 @@
               }
               syncOrdersFromBackend();
             } else if (data.event === 'order_paid') {
-              var target = O.find(function (x) { return x.id === data.order_id || (data.table && getTableNum(x) == data.table) });
+              var target = O.find(function (x) { return x.id === data.order_id });
               if (target) {
                 target.paid = data.paid_method;
                 target.status = data.status || 'served';
@@ -1522,81 +1608,155 @@
                 updateTableBadges();
               }
               syncOrdersFromBackend();
+            } else if (data.event === 'day_closed') {
+              syncOrdersFromBackend();
+            } else if (data.event === 'config_update') {
+              // Owner changed table count on laptop → update phone/kitchen instantly
+              if (data.config && data.config.table_count && data.config.table_count !== tableCount) {
+                tableCount = data.config.table_count;
+                persist();
+                buildTables();
+                toast('Tables updated: ' + tableCount);
+              }
             }
           } catch (err) { }
         };
         ws.onerror = function () {
-          $('mode').textContent = 'POS Offline Local Mode';
+          if ($('mode')) $('mode').textContent = 'POS Offline Local Mode';
+          updateConnBadge(false);
         };
         ws.onclose = function () {
-          setTimeout(initWebSocket, 5000);
+          if ($('mode')) $('mode').textContent = 'POS Offline Local Mode';
+          updateConnBadge(false);
+          if (!wsReconnectTimer) {
+            wsReconnectTimer = setTimeout(initWebSocket, 3000);
+          }
         };
-      } catch (e) { }
+      } catch (e) {
+        updateConnBadge(false);
+        if (!wsReconnectTimer) {
+          wsReconnectTimer = setTimeout(initWebSocket, 4000);
+        }
+      }
     }
-    setTimeout(initWebSocket, 800);
+    setTimeout(initWebSocket, 500);
+
+    // Heartbeat check: Ping server every 5s, auto-reconnect if dropped
+    setInterval(function () {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        initWebSocket();
+      } else {
+        try { ws.send('ping'); } catch (e) { }
+      }
+    }, 5000);
+
+    // Screen Wakeup / Tab Focus: Reconnect & Sync immediately when phone or laptop wakes from sleep
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) {
+        syncOrdersFromBackend();
+        fetchOnlineUrl();
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          initWebSocket();
+        }
+      }
+    });
+    window.addEventListener('focus', function () {
+      syncOrdersFromBackend();
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        initWebSocket();
+      }
+    });
 
     // Live Auto-Sync Orders from Backend SQLite Database (Every 2s & on demand)
+    // AUTOMATIC FIX: Backend fully replaces local data — no stale dots ever
     function syncOrdersFromBackend() {
-      var apiEndpoint = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000/api/orders' : '/api/orders';
+      var apiEndpoint = getApiBase() + '/api/orders';
       fetch(apiEndpoint)
-        .then(function (res) { return res.json(); })
+        .then(function (res) {
+          if (!res.ok) throw new Error('API ' + res.status);
+          return res.json();
+        })
         .then(function (backendOrders) {
           if (!Array.isArray(backendOrders)) return;
-          var hasChanges = false;
-          backendOrders.forEach(function (bo) {
-            var tNum = bo.table || bo.table_number || 1;
-            bo.table = tNum;
-            bo.table_number = tNum;
-            bo.at = bo.at || bo.created_at || Date.now();
-            bo.paid = bo.paid || bo.paid_method || null;
-            if (Array.isArray(bo.items)) {
-              bo.items = bo.items.map(function (it) {
-                var itemName = it.name || it.item_name || 'Item';
-                var priceRupees = it.price ? it.price : (it.price_paise ? it.price_paise / 100 : (it.unit_price_paise ? it.unit_price_paise / 100 : pr(itemName)));
-                return {
-                  name: itemName,
-                  item_name: itemName,
-                  qty: it.qty || 1,
-                  price: priceRupees
-                };
-              });
-            }
+          updateConnBadge(true);
 
-            var localIdx = O.findIndex(function (x) { return x.id === bo.id || (bo.table && getTableNum(x) == bo.table && !x.paid && !bo.paid); });
-            if (localIdx === -1) {
-              O.unshift(bo);
-              hasChanges = true;
-            } else {
-              if (O[localIdx].status !== bo.status) {
-                O[localIdx].status = bo.status;
-                hasChanges = true;
-              }
-              if (bo.paid && O[localIdx].paid !== bo.paid) {
-                O[localIdx].paid = bo.paid;
-                O[localIdx].paidAt = bo.paid_at || Date.now();
-                hasChanges = true;
-              }
+          // Build lookup of backend IDs for fast check
+          var backendIdSet = {};
+          backendOrders.forEach(function (bo) { backendIdSet[bo.id] = true; });
+
+          // Keep ONLY very recent local-only orders (placed in last 10s, not yet confirmed by backend)
+          // These are orders the waiter just sent — backend hasn't stored them yet
+          var pendingLocal = O.filter(function (lo) {
+            return !backendIdSet[lo.id] && lo.status === 'new' && (Date.now() - (lo.at || 0)) < 10000;
+          });
+
+          // Normalize all backend orders
+          var normalized = backendOrders.map(function (bo) {
+            var tNum = bo.table || bo.table_number || 1;
+            var paid = bo.paid || bo.paid_method || null;
+            var items = Array.isArray(bo.items) ? bo.items.map(function (it) {
+              var itemName = it.name || it.item_name || 'Item';
+              var priceRupees = it.price ? it.price : (it.price_paise ? it.price_paise / 100 : (it.unit_price_paise ? it.unit_price_paise / 100 : pr(itemName)));
+              return { name: itemName, item_name: itemName, qty: it.qty || 1, price: priceRupees };
+            }) : [];
+            return {
+              id: bo.id,
+              table: tNum,
+              table_number: tNum,
+              status: bo.status,
+              paid: paid,
+              paid_method: paid,
+              paidAt: bo.paid_at || null,
+              at: bo.at || bo.created_at || Date.now(),
+              items: items,
+              customer_name: bo.customer_name || '',
+              customer_phone: bo.customer_phone || '',
+              note: bo.note || '',
+              subtotal_paise: bo.subtotal_paise || 0,
+              total_paise: bo.total_paise || bo.subtotal_paise || 0
+            };
+          });
+
+          // Check if any new 'new' orders arrived that weren't in old O
+          var oldIds = {};
+          O.forEach(function (o) { oldIds[o.id] = o.status; });
+          normalized.forEach(function (no) {
+            if (!oldIds[no.id] && no.status === 'new' && (Date.now() - no.at) < 60000) {
+              playSound('order');
+              toast('Naya Order: Table ' + no.table);
             }
           });
 
-          if (hasChanges) {
-            persist();
-            paint();
-            updateTableBadges();
-          }
+          // FULLY REPLACE O with backend data + pending local orders
+          // This is the core fix: stale localStorage data can NEVER cause ghost dots
+          O = normalized.concat(pendingLocal);
+
+          persist();
+          paint();
+          updateTableBadges();
         })
-        .catch(function () { });
+        .catch(function () {
+          updateConnBadge(false);
+        });
     }
     syncOrdersFromBackend();
     setInterval(syncOrdersFromBackend, 2000);
 
-    // Fetch dynamic online cloud URL from backend
+    // Fetch dynamic online cloud URL & Local Wi-Fi URL from backend
     function fetchOnlineUrl() {
-      var apiEndpoint = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000/api/online-url' : '/api/online-url';
+      var apiEndpoint = getApiBase() + '/api/online-url';
       fetch(apiEndpoint)
         .then(function (res) { return res.json() })
         .then(function (d) {
-          if (d && d.active && d.online_url) {
+          if (!d) return;
+          if (d.local_url) {
+            LOCAL_WIFI_URL = d.local_url;
+            if (currentUrlMode === 'wifi') {
+              currentQrUrl = LOCAL_WIFI_URL;
+              renderQrCodes(currentQrUrl);
+            }
+          }
+          if (d.active && d.online_url) {
             activeOnlineUrl = d.online_url;
             if (currentUrlMode === 'online') {
               currentQrUrl = activeOnlineUrl;
@@ -1609,7 +1769,7 @@
         .catch(function () { });
     }
     fetchOnlineUrl();
-    setInterval(fetchOnlineUrl, 30000);
+    setInterval(fetchOnlineUrl, 15000);
 
     window.switchToUrlMode = function (mode) {
       currentUrlMode = mode;
@@ -1627,7 +1787,8 @@
       } else {
         if (bOnline) { bOnline.className = 'sm sec'; bWifi.className = 'sm pri'; }
         if (mOnline) { mOnline.className = 'sm sec'; mWifi.className = 'sm pri'; }
-        toast('Cafe Wi-Fi Mode Active (Local IP: 172.20.10.6)');
+        var hostIp = LOCAL_WIFI_URL.replace(/https?:\/\//, '').replace(/:8000/, '');
+        toast('Cafe Wi-Fi Mode Active (Local IP: ' + hostIp + ')');
       }
     };
 
@@ -1937,11 +2098,34 @@
           persist();
           buildTables();
           toast('Total tables updated: ' + tableCount);
+          // Broadcast to phone/kitchen/cashier via backend so ALL devices update instantly
+          fetch(getApiBase() + '/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table_count: tableCount })
+          }).catch(function () { });
         } else {
           alert('Tables 4 se 48 ke beech rakhein');
         }
       };
     }
+
+    // On startup: fetch live table count from server so phone always matches laptop
+    function fetchCafeConfig() {
+      fetch(getApiBase() + '/api/config')
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          if (cfg && cfg.table_count && cfg.table_count !== tableCount) {
+            tableCount = cfg.table_count;
+            persist();
+            buildTables();
+          }
+        })
+        .catch(function () { });
+    }
+    fetchCafeConfig();
+    // Re-fetch config every 10s so phone always stays in sync even if WS drops
+    setInterval(fetchCafeConfig, 10000);
 
     if ($('btnSavePin')) {
       $('btnSavePin').onclick = function () {
@@ -2037,7 +2221,9 @@
       var activeCount = 0;
       O.forEach(function (o) {
         var tn = getTableNum(o);
-        if ((o.status !== 'served' && o.status !== 'cancelled') || !o.paid) {
+        // Table is FREE only when status is served OR cancelled.
+        // Do NOT use paid status to decide — a served order means table is free.
+        if (o.status !== 'served' && o.status !== 'cancelled') {
           if (!active[tn]) {
             active[tn] = true;
             activeCount++;
@@ -2095,54 +2281,74 @@
         total: subtotalPaise / 100
       };
 
-      items.forEach(function (it) {
-        var r = RC[it.name];
-        if (r) {
-          for (var ing in r) {
-            stockMovements.unshift({
-              type: 'order_deduct',
-              order_id: o.id,
-              table: o.table,
-              item: it.name,
-              ing: ing,
-              used: r[ing] * it.qty,
-              at: Date.now()
-            });
+      var btnGo = $('go');
+      btnGo.disabled = true;
+      var origText = btnGo.textContent;
+      btnGo.textContent = 'Kitchen ko bhej rahe hain...';
+
+      var apiEndpoint = getApiBase() + '/api/orders';
+
+      fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: o.id,
+          table_number: o.table,
+          customer_name: o.customer_name,
+          customer_phone: o.customer_phone,
+          note: o.note,
+          items: items
+        })
+      })
+      .then(function (res) {
+        if (!res.ok) throw new Error('Server status ' + res.status);
+        return res.json();
+      })
+      .then(function (saved) {
+        items.forEach(function (it) {
+          var r = RC[it.name];
+          if (r) {
+            for (var ing in r) {
+              stockMovements.unshift({
+                type: 'order_deduct',
+                order_id: o.id,
+                table: o.table,
+                item: it.name,
+                ing: ing,
+                used: r[ing] * it.qty,
+                at: Date.now()
+              });
+            }
           }
-        }
+        });
+        if (stockMovements.length > 50) stockMovements = stockMovements.slice(0, 50);
+
+        O.unshift(o);
+        persist();
+        paint();
+        updateTableBadges();
+        updateConnBadge(true);
+
+        cart = {};
+        $('note').value = '';
+        $('cname').value = '';
+        $('cphone').value = '';
+        table = null;
+        [].forEach.call($('tb').children, function (x) { x.classList.remove('on') });
+        upd();
+        playSound('order');
+        if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+        toast('✅ Table ' + curTable + ' ka order kitchen pahunch gaya!');
+        btnGo.textContent = origText;
+      })
+      .catch(function (err) {
+        btnGo.disabled = false;
+        btnGo.textContent = origText;
+        updateConnBadge(false);
+        playSound('cancel');
+        alert('⚠️ ORDER SENDING FAILED!\n\nKitchen server se connection nahi ho paya.\n\nKaran: Laptop sleep mode me ho sakta hai, ya Cloud Tunnel domain change ho gayi hai.\n\nKripya Counter laptop par server check karein ya Counter screen se naya QR code scan karein.\n\n(Aapke chune hue items cart me surakshit hain, button dubara dabayein)');
+        toast('⚠️ Order Kitchen tak nahi gaya! Connection error.', true);
       });
-      if (stockMovements.length > 50) stockMovements = stockMovements.slice(0, 50);
-
-      cart = {};
-      $('note').value = '';
-      $('cname').value = '';
-      $('cphone').value = '';
-      table = null;
-      [].forEach.call($('tb').children, function (x) { x.classList.remove('on') });
-      upd();
-      playSound('order');
-      if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
-      toast('Table ' + curTable + ' ka order kitchen bhej diya gaya!');
-
-      try {
-        var apiEndpoint = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000/api/orders' : '/api/orders';
-        fetch(apiEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: o.id,
-            table_number: o.table,
-            customer_name: o.customer_name,
-            customer_phone: o.customer_phone,
-            note: o.note,
-            items: items
-          })
-        }).catch(function () { });
-      } catch (e) { }
-
-      O.unshift(o);
-      persist();
-      paint();
     };
 
     function save(o, patch) {
@@ -2153,7 +2359,7 @@
       paint();
       updateTableBadges();
 
-      var apiBase = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000' : '';
+      var apiBase = getApiBase();
       if (patch.status) {
         try {
           fetch(apiBase + '/api/orders/' + o.id + '/status?status=' + patch.status, { method: 'PATCH' }).catch(function () { });
@@ -2581,7 +2787,7 @@
       $('ea').value = '';
 
       try {
-        fetch('/api/expenses', {
+        fetch(getApiBase() + '/api/expenses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ category: x.c, amount_paise: toPaise(x.a) })
@@ -2602,7 +2808,7 @@
       stockMovements.unshift({ type: 'restock', at: Date.now() });
 
       try {
-        fetch('/api/stock/restock', {
+        fetch(getApiBase() + '/api/stock/restock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ note: 'Owner Restock' })
@@ -2660,7 +2866,7 @@
       var id = r.getAttribute('data-id'), d = ymd(), a = { d: d, s: id, p: b.getAttribute('data-t') != '1' };
 
       try {
-        fetch('/api/attendance', {
+        fetch(getApiBase() + '/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ staff_id: a.s, date_str: a.d, is_present: a.p })
@@ -2685,7 +2891,7 @@
       var ex = x.type == 'paid' ? { c: 'Vendor bill', a: x.a, at: x.at } : null;
 
       try {
-        fetch('/api/vendors', {
+        fetch(getApiBase() + '/api/vendors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ vendor_name: x.v, amount_paise: toPaise(x.a), entry_type: x.type })
@@ -2710,7 +2916,7 @@
       $('ss').value = '';
 
       try {
-        fetch('/api/staff', {
+        fetch(getApiBase() + '/api/staff', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: x.n, role: x.role, shift: x.shift, salary_paise: toPaise(x.sal) })
@@ -2813,21 +3019,40 @@
       toast('Cafe data backup download ho gaya!');
     };
 
-    // Close Day
+    // Close Day (Resets tables & kitchen queue for the new day, preserves past revenue history)
     $('btnCloseDay').onclick = function () {
       var unpaidCount = O.filter(function (o) { return !o.paid && o.status !== 'cancelled' }).length;
-      if (unpaidCount > 0) {
-        if (!confirm('Dhyan dein: ' + unpaidCount + ' active orders ka bill abhi baaki hai! Kya aap din close karke naya din shuru karna chahte hain? (Past history aur staff surakshit rahega)')) return;
-      } else {
-        if (!confirm('Aaj ka din close karein? Sabhi tables fresh aur free ho jayenge. Saari past history aur staff surakshit rahega.')) return;
-      }
+      var msg = unpaidCount > 0
+        ? ('Dhyan dein: ' + unpaidCount + ' active orders ka bill abhi baaki hai!\n\nAaj ka din close karne se sabhi tables free ho jayenge aur kitchen queue agle din ke liye reset ho jayegi.\n(Pichla hisaab aur past reports bilkul surakshit rahenge).\n\nKya aap naya din shuru karna chahte hain?')
+        : ('Aaj ka din close karein?\n\nSabhi tables fresh aur free ho jayenge aur kitchen queue agle din ke liye reset ho jayegi.\n(Past history aur reports surakshit rahenge).');
+      if (!confirm(msg)) return;
+
+      // Mark all unserved/unpaid orders as closed for the day
+      O.forEach(function (o) {
+        if (o.status !== 'served' && o.status !== 'cancelled') {
+          o.status = 'served';
+        }
+        if (!o.paid) {
+          o.paid = 'DayClosed';
+          o.paidAt = o.paidAt || Date.now();
+        }
+      });
+
       table = null;
       cart = {};
       [].forEach.call($('tb').children, function (x) { x.classList.remove('on') });
       persist();
       paint();
       upd();
-      toast('Naya din shuru! Tables free hain, staff aur past history surakshit hai.');
+      updateTableBadges();
+
+      // Notify backend to close open orders in SQLite DB
+      try {
+        var apiBase = getApiBase();
+        fetch(apiBase + '/api/day/close', { method: 'POST' }).catch(function () { });
+      } catch (e) { }
+
+      toast('🎉 Naya din shuru ho gaya! Sabhi tables 100% free hain, Kitchen queue saaf hai.');
     };
 
     // Tab Switching

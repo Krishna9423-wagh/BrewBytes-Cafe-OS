@@ -22,7 +22,7 @@ while true; do
     LATEST_URL=$(grep -Eo 'https://[a-zA-Z0-9.-]+\.lhr\.(life|run)' "$LOG_FILE" | tail -n 1)
     if [ -n "$LATEST_URL" ] && [ "$LATEST_URL" != "$LAST_URL" ]; then
       LAST_URL="$LATEST_URL"
-      echo "$LATEST_URL" > "$URL_FILE"
+      printf "%s\n" "$LATEST_URL" > "$URL_FILE"
       echo "✅ Active Online Cloud URL: $LATEST_URL"
       echo "📱 Waiter phones can connect from anywhere on 4G/5G mobile data!"
     fi
